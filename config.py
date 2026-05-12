@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
@@ -21,7 +21,8 @@ class Settings(BaseSettings):
     similarity_threshold: float = 0.82   # cosine threshold for clustering
     top_k_chat_retrieval: int = 8
 
-
+    model_config = SettingsConfigDict(env_file=".env")
+    
     class Config:
         env_file = ".env"
 
