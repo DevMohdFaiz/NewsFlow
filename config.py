@@ -22,9 +22,6 @@ class Settings(BaseSettings):
     top_k_chat_retrieval: int = 8
 
     model_config = SettingsConfigDict(env_file=".env")
-    
-    class Config:
-        env_file = ".env"
 
 @lru_cache
 def get_settings() -> Settings:
