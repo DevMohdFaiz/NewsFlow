@@ -46,31 +46,61 @@ RSS_FEEDS = [
 class RSSFetcher:
 
     def fetch_all(self) -> list[dict]:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         all_articles = []
-        for source_name, feed_url in RSS_FEEDS:
-            articles = self._fetch_feed(source_name, feed_url)
-            all_articles.extend(articles)
+        
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_feed = {
+                executor.submit(self._fetch_feed, source_name, feed_url): source_name 
+                for source_name, feed_url in RSS_FEEDS
+            }
+            for future in as_completed(future_to_feed):
+                source_name = future_to_feed[future]
+                try:
+                    articles = future.result()
+                    all_articles.extend(articles)
+                except Exception as e:
+                    logger.warning(f"[RSS] Unhandled exception for {source_name}: {e}")
 
         logger.info(f"[RSS] Total articles from feeds: {len(all_articles)}")
-        return all_articles 
+        return all_articles
 
     def _fetch_feed(self, source_name: str, feed_url: str) -> list[dict]:
+        import requests
+        import re
+        
+        def strip_html(html_str):
+            if not html_str: return ""
+            text = re.sub(r'<[^>]+>', ' ', html_str)
+            return ' '.join(text.split())
+
         try:
-            feed = feedparser.parse(feed_url)
+            resp = requests.get(feed_url, timeout=10)
+            feed = feedparser.parse(resp.content)
             results = []
             for entry in feed.entries:
                 url   = entry.get("link", "")
                 title = entry.get("title", "").strip()
                 if not url or not title:
                     continue
+                    
+                # Try to get the longest text available in the RSS feed
+                content_html = ""
+                if "content" in entry and len(entry.content) > 0:
+                    content_html = entry.content[0].get("value", "")
+                summary_html = entry.get("summary", "")
+                
+                body = strip_html(content_html)
+                if len(body) < 150:
+                    body = strip_html(summary_html)
 
                 results.append({
            "title": title,
            "url": url,
            "source": source_name,
            "published_at": self._parse_date(entry),
-           "description": entry.get("summary", ""),
-           "body":  "",
+           "description": strip_html(summary_html),
+           "body":  body,
            "origin": "rss",
                 })
 
