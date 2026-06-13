@@ -4,9 +4,8 @@ from newspaper import Article
 
 logger = logging.getLogger(__name__)
 
-MAX_WORKERS    = 10    # parallel extraction threads
-MIN_BODY_LEN   = 150   # discard articles with too little text
-
+MAX_WORKERS  = 100    # parallel extraction threads
+MIN_BODY_LEN = 150   # discard articles with too little text
 
 class ArticleExtractor:
 
@@ -20,9 +19,16 @@ class ArticleExtractor:
                 for a in articles
             }
             for future in as_completed(future_map):
-                result = future.result()
-                if result:
-                    enriched.append(result)
+                try:
+                    result = future.result()
+                    if result:
+                        enriched.append(result)
+                except Exception as e:
+                    original = future_map[future]
+                    logger.debug(
+                        f"[Extractor] Unhandled exception for "
+                        f"{original.get('url', '?')}: {e}"
+                    )
 
         logger.info(
             f"[Extractor] {len(enriched)}/{len(articles)} articles "
@@ -33,8 +39,17 @@ class ArticleExtractor:
     def _extract_one(self, article: dict) -> dict | None:
         """Download + parse a single article. Returns None if extraction fails."""
         url = article.get("url", "")
+
+        # Skip download if body is already present (e.g. from Newsdata.io content field)
+        existing_body = article.get("body", "").strip()
+        if len(existing_body) >= MIN_BODY_LEN:
+            return article
+
+        from newspaper import Config
         try:
-            a = Article(url)
+            conf = Config()
+            conf.request_timeout = 5
+            a = Article(url, config=conf)
             a.download()
             a.parse()
 
@@ -42,12 +57,12 @@ class ArticleExtractor:
             if len(body) < MIN_BODY_LEN:
                 return None
 
-            # enrich with anything newspaper3k found
+            # Enrich with anything newspaper3k found
             article["body"]        = body
             article["title"]       = article["title"] or a.title or ""
             article["description"] = article["description"] or a.meta_description or ""
 
-            # use newspaper3k's publish date if we don't have one
+            # Use newspaper3k's publish date if we don't have one
             if not article.get("published_at") and a.publish_date:
                 article["published_at"] = a.publish_date.isoformat()
 
