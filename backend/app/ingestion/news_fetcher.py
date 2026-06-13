@@ -15,7 +15,7 @@ class NewsFetcher:
     def __init__(self):
         self.newsapi = NewsApiClient(api_key=settings.news_api_key)
 
-    # ── NewsAPI ──────────────────────────────────────────────
+    #  NewsAPI 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
     def fetch_newsapi(self, page_size: int = 100) -> list[dict]:
         """
@@ -63,7 +63,7 @@ class NewsFetcher:
             })
         return results
 
-    # ── SerpAPI ──────────────────────────────────────────────
+    #  SerpAPI 
     def fetch_serpapi(self, queries: list[str] | None = None) -> list[dict]:
         """Discover trending stories via Google News search."""
         if queries is None:
@@ -112,7 +112,7 @@ class NewsFetcher:
             })
         return results
 
-    # ── Newsdata.io ───────────────────────────────────────────
+    #  Newsdata.io 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
     def fetch_newsdata(self, query: str = "latest news") -> list[dict]:
         """
@@ -162,7 +162,7 @@ class NewsFetcher:
             })
         return results
 
-    # ── Combined ─────────────────────────────────────────────
+    #  Combined 
     def fetch_all(self) -> list[dict]:
         newsapi_articles  = self.fetch_newsapi()
         newsdata_articles = self.fetch_newsdata()
