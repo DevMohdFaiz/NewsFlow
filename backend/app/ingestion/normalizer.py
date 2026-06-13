@@ -1,4 +1,5 @@
 import hashlib
+import html
 import logging
 import re
 from datetime import datetime, timezone, timedelta
@@ -19,10 +20,15 @@ class Normalizer:
         1. Parse + validate timestamps
         2. Drop articles outside the rolling window
         3. Deduplicate by URL and title fingerprint
+        4. Clean HTML entities from body/description
         """
         parsed    = [a for a in (self._parse_dates(a) for a in articles) if a]
         windowed  = [a for a in parsed if self._within_window(a)]
         unique    = self._deduplicate(windowed)
+        for a in unique:
+            a["body"]        = self._clean_text(a.get("body", ""))
+            a["description"] = self._clean_text(a.get("description", ""))
+            a["title"]       = self._clean_text(a.get("title", ""))
 
         logger.info(
             f"[Normalizer] {len(articles)} in → "
@@ -54,7 +60,11 @@ class Normalizer:
     # ── Rolling Window ────────────────────────────────────────
     def _within_window(self, article: dict) -> bool:
         try:
-            dt  = dateparser.parse(article["published_at"]).astimezone(timezone.utc)
+            # published_at is already a normalized ISO 8601 string from _parse_dates;
+            # use fromisoformat instead of the slower dateparser regex engine.
+            dt  = datetime.fromisoformat(article["published_at"])
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
             age = datetime.now(timezone.utc) - dt
             return age <= timedelta(hours=MAX_AGE_HOURS)
         except Exception:
@@ -78,6 +88,15 @@ class Normalizer:
             unique.append(a)
 
         return unique
+
+    def _clean_text(self, text: str) -> str:
+        """Decode HTML entities and strip any residual HTML tags."""
+        if not text:
+            return ""
+        text = html.unescape(text)                          # &amp; &#160; &mdash; etc.
+        text = re.sub(r"<[^>]+>", " ", text)               # strip <tags>
+        text = re.sub(r"\s+", " ", text).strip()           # normalise whitespace
+        return text
 
     def _title_fingerprint(self, title: str) -> str:
         """Normalize title and hash it — catches near-identical headlines."""
