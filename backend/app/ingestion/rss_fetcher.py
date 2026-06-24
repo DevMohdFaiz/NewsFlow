@@ -75,7 +75,7 @@ class RSSFetcher:
             return ' '.join(text.split())
 
         try:
-            resp = requests.get(feed_url, timeout=10)
+            resp = requests.get(feed_url, timeout=20)
             feed = feedparser.parse(resp.content)
             results = []
             for entry in feed.entries:
