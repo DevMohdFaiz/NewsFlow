@@ -19,10 +19,35 @@ async def get_briefing(category: str):
     Tries Redis (2hr TTL) first, then Postgres.
     """
     if category == "All":
+        # Build a dynamic "top headlines" summary from the 5 most recent clusters
+        top_clusters = await store.postgres.get_clusters_detailed(
+            category=None, days=3, limit=5, offset=0
+        )
+        clusters_list = top_clusters[0]  # (clusters, has_more) tuple
+
+        if not clusters_list:
+            return {
+                "category": "All",
+                "content": None,
+                "cached": False,
+            }
+
+        lines = []
+        for c in clusters_list:
+            title = c.get("rep_title") or ""
+            summary = c.get("summary") or ""
+            cat = c.get("category", "")
+            source_count = c.get("source_count", 1)
+            line = f"{title} [{cat}, {source_count} source{'s' if source_count != 1 else ''}]"
+            if summary:
+                line += f" — {summary[:120].rstrip()}{'…' if len(summary) > 120 else ''}"
+            lines.append(f"• {line}")
+
+        content = "\n".join(lines)
         return {
             "category": "All",
-            "content": "Welcome to the NewsFlow live intelligence dashboard. Select a specific category from the sidebar to view its latest AI-generated briefing and analysis.",
-            "cached": True
+            "content": content,
+            "cached": False,
         }
 
     if category not in VALID_CATEGORIES:

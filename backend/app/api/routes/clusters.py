@@ -48,10 +48,12 @@ async def get_clusters(
         limit=limit,
         offset=offset,
     )
+    total = await store.postgres.count_clusters(category=category, days=days)
 
     return {
         "clusters": clusters,
         "has_more": has_more,
+        "total":    total,
         "category": category,
         "days":     days,
         "cached":   False,
