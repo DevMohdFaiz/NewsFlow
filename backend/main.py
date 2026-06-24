@@ -41,10 +41,13 @@ async def lifespan(app: FastAPI):
             )
 
         # Start the pipeline scheduler
-        from backend.app.scheduler.jobs import create_scheduler
+        from backend.app.scheduler.jobs import create_scheduler, run_pipeline
         scheduler = create_scheduler()
         scheduler.start()
         logger.info("[startup] Scheduler started")
+
+        # Kick off an initial pipeline run immediately in the background
+        asyncio.create_task(run_pipeline(trigger="startup"))
 
         logger.info("[startup] Ready")
     except Exception as e:
