@@ -5,8 +5,8 @@ from config import get_settings
 settings = get_settings()
 logger   = logging.getLogger(__name__)
 
-# Load once at module level; its expensive to reload
-nlp = spacy.load("en_core_web_sm")
+# Load once at module level — disable everything except NER for speed
+nlp = spacy.load("en_core_web_sm", disable=["tok2vec", "tagger", "parser", "attribute_ruler", "lemmatizer"])
 
 # Entity types we care about
 ENTITY_TYPES = {"PERSON", "ORG", "GPE", "LOC", "NORP", "EVENT"}
@@ -27,12 +27,25 @@ class NERProcessor:
         docs = nlp.pipe(snippets, batch_size=50)
 
         for article, doc in zip(articles, docs):
-            entities = list({
-                ent.text.strip()
-                for ent in doc.ents
-                if ent.label_ in ENTITY_TYPES and len(ent.text.strip()) > 1
-            })
-            article["entities"] = entities
+            source_name = article.get("source", "").lower().strip()
+            
+            entities = []
+            for ent in doc.ents:
+                if ent.label_ in ENTITY_TYPES and len(ent.text.strip()) > 1:
+                    text = ent.text.strip()
+                    t_lower = text.lower()
+                    
+                    # Filter out publisher names from trending topics
+                    if source_name and (t_lower in source_name or source_name in t_lower):
+                        continue
+                    
+                    blacklist = ["news", "premium times", "bbc", "cnn", "nytimes", "al jazeera", "reuters", "bloomberg"]
+                    if any(b in t_lower for b in blacklist):
+                        continue
+                        
+                    entities.append(text)
+                    
+            article["entities"] = list(set(entities))
 
         return articles
 
@@ -104,4 +117,4 @@ class NERProcessor:
             f"[NER] {len(clusters)} candidate clusters, "
             f"{len(singletons)} singletons"
         )
-        return clusters, singletons
+        return clusters, singletons 
