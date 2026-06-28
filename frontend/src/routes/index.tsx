@@ -126,11 +126,15 @@ function Dashboard() {
   const [briefing, setBriefing] = useState<string | null>(null);
   const [briefingTime, setBriefingTime] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window === "undefined") return true;
+  // Default to dark on initial render (server and client initial match)
+  // then read the persisted preference on mount to avoid hydration mismatch.
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     const stored = localStorage.getItem("newsflow_dark_mode");
-    return stored !== null ? stored === "true" : true;
-  });
+    if (stored !== null) setIsDark(stored === "true");
+  }, []);
 
   // Story detail drawer state
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
@@ -708,7 +712,13 @@ function Briefing({
   category: string;
   generatedAt: string | null;
 }) {
-  const [expanded, setExpanded] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1024);
+  // Initialize collapsed on server/client to avoid hydration mismatch;
+  // enable expanded state on mount for large screens.
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) setExpanded(true);
+  }, []);
 
   const lines = useMemo(() => {
     if (!content) return [];
