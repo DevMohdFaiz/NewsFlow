@@ -10,18 +10,23 @@ CATEGORIES = settings.briefing_categories
 # Keyword map — each category has a list of keywords/phrases.
 # Order matters: checked top-to-bottom. Put more specific categories first.
 KEYWORD_MAP: list[tuple[str, list[str]]] = [
+    ("Nigeria", [
+        "nigeria", "lagos", "abuja", "tinubu", "buhari", "naira", "cbn", 
+        "efcc", "inec", "boko haram", "nnpc", "dangote", "sanwo-olu", 
+        "super eagles", "ndlea", "dss", "aso rock", "fct", "nddc", "ibadan", "kano"
+    ]),
     ("Conflict", [
-        "war", "military", "attack", "bomb", "missile", "troops", "soldier",
+        "war", "military", "attack", "bomb", "drone", "missile", "troops", "soldier",
         "ceasefire", "killed", "airstrike", "insurgent", "rebel", "invasion",
-        "offensive", "artillery", "drone strike", "combat", "hostage",
+        "offensive", "artillery", "drone strike", "missile", "combat", "hostage",
         "wounded", "casualties", "coup", "siege", "frontline", "armed",
         "terrorist", "terrorism", "isis", "hamas", "hezbollah", "nato forces",
-        "ukraine", "russia", "gaza", "conflict zone",
+        "ukraine", "russia", "gaza", "conflict zone", "uav", 
     ]),
     ("Climate", [
         "climate", "global warming", "carbon", "emissions", "fossil fuel",
         "renewable energy", "solar", "wind energy", "drought", "flood",
-        "wildfire", "hurricane", "cyclone", "sea level", "glacier",
+        "wildfire", "hurricane", "earthquake", "cyclone", "sea level", "glacier",
         "deforestation", "biodiversity", "cop", "net zero", "greenhouse",
         "pollution", "ozone", "arctic", "coral reef", "extreme weather",
     ]),
@@ -46,7 +51,8 @@ KEYWORD_MAP: list[tuple[str, list[str]]] = [
         "cybersecurity", "hack", "data breach", "robotics", "autonomous",
         "cryptocurrency", "bitcoin", "blockchain", "app", "cloud",
         "elon musk", "tesla", "spacex", "nvidia", "algorithm", "model",
-        "llm", "chatbot", "deepmind", "anthropic", "gemini", "gpt",
+        "llm", "chatbot", "deepmind", "anthropic", "gemini", "gpt", "deepseek",
+        "llama"
     ]),
     ("Economy", [
         "economy", "gdp", "inflation", "interest rate", "federal reserve",
@@ -55,6 +61,7 @@ KEYWORD_MAP: list[tuple[str, list[str]]] = [
         "deficit", "budget", "fiscal", "monetary", "oil price", "crude",
         "dollar", "euro", "currency", "investment", "bond", "treasury",
         "market", "shares", "earnings", "profit", "revenue", "finance",
+        "stock", ""
     ]),
     ("Culture", [
         "film", "movie", "music", "album", "concert", "artist", "award",
@@ -70,7 +77,7 @@ KEYWORD_MAP: list[tuple[str, list[str]]] = [
         "legislation", "democrat", "republican", "party", "diplomat",
         "sanction", "treaty", "un ", "united nations", "summit", "biden",
         "trump", "macron", "leader", "chancellor", "monarchy", "court",
-        "supreme court", "protest", "rally", "opposition",
+        "supreme court", "protest", "rally", "opposition", "referendum"
     ]),
 ]
 
@@ -78,7 +85,7 @@ KEYWORD_MAP: list[tuple[str, list[str]]] = [
 class CategoryClassifier:
 
     def classify_batch(self, clusters: list[dict]) -> list[dict]:
-        """Classify all clusters instantly via keyword matching. Zero API calls."""
+        """Classify all clusters instantly via keyword matching."""
         for cluster in clusters:
             cluster["category"] = self._classify_one(cluster)
         logger.info(f"[Classifier] Classified {len(clusters)} clusters (keyword-based, no API)")
@@ -99,6 +106,6 @@ class CategoryClassifier:
 
         # Pick the category with the highest keyword hit count
         best_cat = max(scores, key=lambda c: scores[c])
-        if scores[best_cat] == 0:
-            return "Politics"   # Catch-all fallback
+        # if scores[best_cat] == 0:
+        #     return "Politics"   # Catch-all fallback
         return best_cat
