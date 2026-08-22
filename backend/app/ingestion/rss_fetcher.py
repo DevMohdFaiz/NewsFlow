@@ -13,7 +13,7 @@ RSS_FEEDS = [
     ("BBC World", "http://feeds.bbci.co.uk/news/world/rss.xml"),
     ("Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml"),
     # ("DW", "https://rss.dw.com/rss/rss-en-all"),
-    ("France 24", "https://www.france24.com/en/rss"),
+    ("France 24", "https://www.france24.com/en/rss"), 
     # US
     # ("NPR", "https://feeds.npr.org/1001/rss.xml"),
     ("CNN", "http://rss.cnn.com/rss/edition_world.rss"),
@@ -35,11 +35,16 @@ RSS_FEEDS = [
     # ("WHO",    "https://www.who.int/rss-feeds/news-releases-en.xml"),
     # Climate
     ("Carbon Brief", "https://www.carbonbrief.org/feed"),
-    # Africa / Global South
-    ("Africa News",     "https://www.africanews.com/feed/"),
-    ("Premium Times",   "https://www.premiumtimesng.com/feed"),
-    # ("The East African","https://www.theeastafrican.co.ke/tea/rss"),
-    ("Mail & Guardian", "https://mg.co.za/feed/"),
+    # Africa / Nigeria
+    ("Africa News",       "https://www.africanews.com/feed/"),
+    ("Premium Times",     "https://www.premiumtimesng.com/feed"),
+    ("Guardian Nigeria",  "https://guardian.ng/feed"),
+    ("PM News",           "https://pmnewsnigeria.com/feed/"),
+    ("Channels TV",       "https://www.channelstv.com/feed/"),
+    ("Vanguard",          "https://www.vanguardngr.com/feed/"),
+    ("Punch",             "https://punchng.com/feed/"),
+    ("The Cable",         "https://www.thecable.ng/feed"),
+    ("Mail & Guardian",   "https://mg.co.za/feed/"),
 ]
 
 
