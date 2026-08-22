@@ -8,14 +8,13 @@ settings = get_settings()
 logger   = logging.getLogger(__name__)
 
 client         = Groq(api_key=settings.groq_api_key)
-BRIEFING_MODEL = "llama-3.3-70b-versatile"
+BRIEFING_MODEL = "qwen/qwen3.6-27b"
 
 
 def _extractive_summary(texts: list[str], sentence_count: int = 3) -> str:
     """
     TextRank-based extractive summary.
-    Picks the most representative sentences from the combined text.
-    100% local — no API, no rate limits.
+    Picks the most representative sentences from the combined text
     """
     from sumy.parsers.plaintext import PlaintextParser
     from sumy.nlp.tokenizers import Tokenizer
@@ -38,7 +37,7 @@ def _extractive_summary(texts: list[str], sentence_count: int = 3) -> str:
 
 class Summarizer:
 
-    # Cluster Summaries — fully local, zero API calls
+    # Cluster Summaries 
 
     def summarize_batch(self, clusters: list[dict]) -> list[dict]:
         """
@@ -96,7 +95,7 @@ class Summarizer:
         briefings = {}
         from concurrent.futures import ThreadPoolExecutor, as_completed
         
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             future_map = {}
             for category in settings.briefing_categories:
                 cat_clusters = grouped.get(category, [])
@@ -105,7 +104,11 @@ class Summarizer:
                 
             for future in as_completed(future_map):
                 category = future_map[future]
-                briefings[category] = future.result()
+                try:
+                    briefings[category] = future.result()
+                except Exception as e:
+                    logger.error(f"[Summarizer] Briefing failed for {category} after retries: {e}")
+                    briefings[category] = f"Briefing temporarily unavailable for {category}."
 
         return briefings
 
@@ -134,7 +137,8 @@ Write a concise bulleted summary of the key events for the {category} category,
 synthesizing the top stories below.
 
 Guidelines:
-- Use markdown bullet points (-)
+- Start each bullet point with a hyphen (-)
+- Output PLAIN TEXT ONLY. DO NOT use any markdown formatting like bold (**), italics (*), or headers (#).
 - Keep each bullet point to a single concise sentence
 - Group related events together
 - Do not use long-form prose or paragraphs
@@ -143,21 +147,29 @@ Guidelines:
 Top {category} Stories:
 {stories_text}"""
 
-        try:
-            response = client.chat.completions.create(
-                model=BRIEFING_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=600,
-                temperature=0.4,
-            )
-            briefing = response.choices[0].message.content.strip()
-            logger.info(f"[Summarizer] Briefing generated for {category}")
-            return briefing
-        except Exception as e:
-            logger.error(f"[Summarizer] Briefing failed for {category}: {e}")
-            return f"Briefing temporarily unavailable for {category}."
+        response = client.chat.completions.create(
+            model=BRIEFING_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2048,
+            temperature=0.4,
+            reasoning_effort="none"
+        )
+        briefing = response.choices[0].message.content.strip()
+        
+        # Qwen is a reasoning model and outputs its internal thought process inside <think> tags.
+        # We must strip these out so the user only sees the final briefing.
+        import re
+        briefing = re.sub(r'<think>.*?(?:</think>|$)\s*', '', briefing, flags=re.DOTALL)
+        
+        # Qwen sometimes ignores instructions and uses markdown anyway, 
+        # so we strip bold/italic asterisks before sending to the frontend.
+        briefing = re.sub(r'\*\*(.*?)\*\*', r'\1', briefing)
+        briefing = re.sub(r'(?m)^\*\s', '- ', briefing) # Convert * bullets to -
+        
+        logger.info(f"[Summarizer] Briefing generated for {category}")
+        return briefing
 
     # Legacy alias kept for backward compat with ProcessingPipeline
     def generate_briefing(self, category: str, clusters: list[dict]) -> str:
         return self._generate_briefing(category, clusters)
-
+
