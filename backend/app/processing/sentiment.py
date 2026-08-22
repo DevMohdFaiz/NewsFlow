@@ -10,7 +10,7 @@ logger   = logging.getLogger(__name__)
 _vader = SentimentIntensityAnalyzer()
 
 client = Groq(api_key=settings.groq_api_key)
-BRIEFING_MODEL = "llama-3.3-70b-versatile"
+BRIEFING_MODEL = "openai/gpt-oss-20b"
 
 
 def _score_to_label(score: float) -> str:
@@ -33,12 +33,12 @@ def _score_to_label(score: float) -> str:
 class SentimentAnalyzer:
 
     def analyze_batch(self, clusters: list[dict]) -> list[dict]:
-        """Score sentiment for all clusters instantly using VADER. Zero API calls."""
+        """Score sentiment for all clusters instantly using VADER"""
         for cluster in clusters:
             score, label = self._analyze_one(cluster)
             cluster["sentiment_score"] = score
             cluster["sentiment_label"] = label
-        logger.info(f"[Sentiment] Scored {len(clusters)} clusters (VADER, no API)")
+        logger.info(f"[Sentiment] Scored {len(clusters)} clusters")
         return clusters
 
     def _analyze_one(self, cluster: dict) -> tuple[float, str]:

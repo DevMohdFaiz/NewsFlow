@@ -1,9 +1,9 @@
 import logging
 
-from backend.app.processing.ner        import NERProcessor
-from backend.app.processing.clusterer  import SemanticClusterer
+from backend.app.processing.ner import NERProcessor
+from backend.app.processing.clusterer import SemanticClusterer
 from backend.app.processing.classifier import CategoryClassifier
-from backend.app.processing.sentiment  import SentimentAnalyzer
+from backend.app.processing.sentiment import SentimentAnalyzer
 from backend.app.processing.summarizer import Summarizer
 from config import get_settings
 
@@ -40,7 +40,6 @@ class ProcessingPipeline:
         clusters = self.clusterer.cluster(candidate_clusters, singletons)
 
         # Steps 4 & 5 — Category classification (keyword-based) + Sentiment (VADER)
-        # Both are now instant local operations — no API calls, no concurrency needed.
         clusters = self.classifier.classify_batch(clusters)
         clusters = self.sentiment.analyze_batch(clusters)
 
