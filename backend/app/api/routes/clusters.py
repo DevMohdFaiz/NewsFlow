@@ -1,5 +1,6 @@
 import logging
 from fastapi import APIRouter, Query, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from backend.app.storage.store import store
@@ -16,7 +17,7 @@ VALID_CATEGORIES = set(settings.briefing_categories)
 @router.get("")
 async def get_clusters(
     category: str | None = Query(default=None, description="Filter by category"),
-    days: int            = Query(default=3, ge=1, le=30, description="Rolling window in days"),
+    days: int | None     = Query(default=None, description="Rolling window in days (defaults to settings.rolling_window_days)"),
     limit: int           = Query(default=16, ge=1, le=100),
     offset: int          = Query(default=0, ge=0),
 ):
@@ -25,7 +26,10 @@ async def get_clusters(
     Tries Redis top-stories cache first (first page, category-specific),
     falls back to Postgres with a joined query for title + source.
     """
-    if category and category not in VALID_CATEGORIES:
+    # Use config value as default so changing rolling_window_days in .env is respected
+    effective_days = days if days is not None else settings.rolling_window_days
+
+    if category and category not in settings.briefing_categories and category != "All":
         raise HTTPException(status_code=422, detail=f"Unknown category '{category}'")
 
     # Redis cache only for page 1 of a specific category
@@ -33,29 +37,31 @@ async def get_clusters(
         cached = store.redis.get_top_stories(category)
         if cached:
             logger.debug(f"[API] Clusters cache hit for {category}")
+            total = await store.postgres.count_clusters(category=category, days=effective_days)
             return {
-                "clusters":  cached[:limit],
-                "has_more":  len(cached) > limit,
-                "category":  category,
-                "days":      days,
-                "cached":    True,
+                "clusters": cached[:limit],
+                "has_more": len(cached) > limit,
+                "total":    total,
+                "category": category,
+                "days":     effective_days,
+                "cached":   True,
             }
 
     # Postgres with JOIN
     clusters, has_more = await store.postgres.get_clusters_detailed(
         category=category,
-        days=days,
+        days=effective_days,
         limit=limit,
         offset=offset,
     )
-    total = await store.postgres.count_clusters(category=category, days=days)
+    total = await store.postgres.count_clusters(category=category, days=effective_days)
 
     return {
         "clusters": clusters,
         "has_more": has_more,
         "total":    total,
         "category": category,
-        "days":     days,
+        "days":     effective_days,
         "cached":   False,
     }
 
@@ -75,7 +81,7 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/{cluster_id}/chat")
-async def chat_about_cluster(cluster_id: str, req: ChatRequest):
+async def chat_about_cluster(cluster_id: str, req: ChatRequest, raw: bool | None = Query(default=None, description="If true, return raw markdown/plaintext instead of JSON")):
     """
     Chat endpoint scoped to a specific cluster.
     Prefixes the user message with the cluster's context so the LLM
@@ -98,7 +104,7 @@ async def chat_about_cluster(cluster_id: str, req: ChatRequest):
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_content},
@@ -107,6 +113,9 @@ async def chat_about_cluster(cluster_id: str, req: ChatRequest):
             temperature=0.3,
         )
         reply = response.choices[0].message.content.strip()
+        # If client asks for raw response, return as markdown/plaintext
+        if raw:
+            return PlainTextResponse(content=reply, media_type="text/markdown")
         return {"reply": reply}
     except Exception as e:
         logger.error(f"[Chat] Error for cluster {cluster_id}: {e}")
