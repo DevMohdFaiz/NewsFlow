@@ -98,7 +98,10 @@ class Summarizer:
         with ThreadPoolExecutor(max_workers=2) as executor:
             future_map = {}
             for category in settings.briefing_categories:
-                cat_clusters = grouped.get(category, [])
+                if category == "All":
+                    cat_clusters = clusters
+                else:
+                    cat_clusters = grouped.get(category, [])
                 future = executor.submit(self._generate_briefing, category, cat_clusters)
                 future_map[future] = category
                 
@@ -131,10 +134,11 @@ class Summarizer:
                 f"Summary: {summary}\n"
             )
 
+        cat_instruction = f"key events for the {category} category" if category != "All" else "the top global headlines"
+        
         prompt = f"""You are an experienced news editor writing a daily briefing.
 
-Write a concise bulleted summary of the key events for the {category} category,
-synthesizing the top stories below.
+Write a concise bulleted summary of {cat_instruction}, synthesizing the top stories below.
 
 Guidelines:
 - Start each bullet point with a hyphen (-)
@@ -143,8 +147,9 @@ Guidelines:
 - Group related events together
 - Do not use long-form prose or paragraphs
 - Maximum 5 bullet points
+- IMPORTANT: Even if the provided stories seem irrelevant to the category, do your best to summarize them anyway. NEVER output conversational apologies or complaints about the dataset. Just output the bullet points.
 
-Top {category} Stories:
+Top Stories:
 {stories_text}"""
 
         response = client.chat.completions.create(
