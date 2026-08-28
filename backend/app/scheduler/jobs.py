@@ -120,31 +120,32 @@ async def run_pipeline(*, trigger: str = "scheduler") -> dict:
         store.redis.set_all_briefings(briefings)
         logger.info(f"[Scheduler] Step 6 complete in {time.time() - t_step:.1f}s")
 
-        #  7. Refresh Redis dashboard caches 
+        #  7. Refresh Redis caches from fresh Postgres data 
         t_step = time.time()
         logger.info("[Scheduler] Step 7 : Refreshing Redis caches")
         try:
+            from backend.app.storage.store import store
+
             sentiment = await store.postgres.get_sentiment_by_category()
             entities  = await store.postgres.get_trending_entities(limit=20)
 
-            grouped: dict[str, list] = {}
-            for c in clusters:
-                cat = c.get("category", "Politics")
-                grouped.setdefault(cat, []).append({
-                    "cluster_id":      c["cluster_id"],
-                    "category":        cat,
-                    "summary":         c.get("summary", ""),
-                    "sentiment_score": c.get("sentiment_score", 0.0),
-                    "sentiment_label": c.get("sentiment_label", "neutral"),
-                    "source_count":    c.get("source_count", 1),
-                    "rep_title":       c["representative"].get("title", ""),
-                    "rep_source":      c["representative"].get("source", ""),
-                })
+            # Rebuild per-category top-stories cache from Postgres with proper JOIN
+            # (in-memory `clusters` dict lacks rep_title/rep_source needed by the frontend)
+            top_stories_by_category: dict[str, list] = {}
+            for cat in settings.briefing_categories:
+                cat_clusters, _ = await store.postgres.get_clusters_detailed(
+                    category=cat,
+                    days=settings.rolling_window_days,
+                    limit=50,
+                    offset=0,
+                )
+                if cat_clusters:
+                    top_stories_by_category[cat] = cat_clusters
 
             store.redis.refresh_dashboard_cache(
                 sentiment=sentiment,
                 entities=entities,
-                top_stories_by_category=grouped,
+                top_stories_by_category=top_stories_by_category,
             )
             store.redis.set_all_briefings(briefings)
             logger.info(f"[Scheduler] Step 7 complete in {time.time() - t_step:.1f}s")
