@@ -95,19 +95,19 @@ app.include_router(dashboard_router)
 @app.post("/api/pipeline/run", tags=["pipeline"])
 async def trigger_pipeline():
     """Manually trigger a full pipeline run. Returns immediately with status."""
-    from backend.app.scheduler.jobs import run_pipeline, _running
-    if _running:
+    import backend.app.scheduler.jobs as jobs
+    if jobs._running:
         return {"status": "already_running", "message": "A pipeline run is already in progress."}
     import asyncio
-    asyncio.create_task(run_pipeline(trigger="manual"))
+    asyncio.create_task(jobs.run_pipeline(trigger="manual"))
     return {"status": "started", "message": "Pipeline run started in background."}
 
 
 @app.get("/api/pipeline/status", tags=["pipeline"])
 def pipeline_status():
     """Check whether a pipeline run is currently in progress."""
-    from backend.app.scheduler.jobs import _running
-    return {"running": _running}
+    import backend.app.scheduler.jobs as jobs
+    return {"running": jobs._running}
 
 
 #  Health check 
