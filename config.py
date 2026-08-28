@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     qdrant_collection: str = "news_articles"
     rolling_window_days: int = 3
     briefing_categories: list[str] = [
-        "Politics", "Economy", "Tech",
+        "All", "Nigeria", "Politics", "Economy", "Tech",
         "Health", "Science", "Conflict", "Climate", "Culture"
     ]
     ingestion_interval_minutes: int = 30
