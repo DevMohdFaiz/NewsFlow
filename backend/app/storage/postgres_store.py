@@ -286,6 +286,16 @@ class PostgresStore:
             await session.commit()
             logger.info(f"[Postgres] Purged clusters older than {days} days")
 
+    async def purge_old_briefings(self, days: int = 7) -> None:
+        """Weekly trim remove briefings older than N days."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                delete(BriefingModel).where(BriefingModel.generated_at < cutoff)
+            )
+            await session.commit()
+            logger.info(f"[Postgres] Purged briefings older than {days} days")
+
     #  Helpers 
     def _parse_dt(self, value) -> datetime:
         if isinstance(value, datetime):
