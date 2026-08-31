@@ -141,13 +141,12 @@ class Summarizer:
 Write a concise bulleted summary of {cat_instruction}, synthesizing the top stories below.
 
 Guidelines:
-- Start each bullet point with a hyphen (-)
-- Output PLAIN TEXT ONLY. DO NOT use any markdown formatting like bold (**), italics (*), or headers (#).
-- Keep each bullet point to a single concise sentence
+- Output a concise, easy-to-read summary
+- Feel free to use markdown formatting like bolding (**) for entity names or headers to structure the briefing
 - Group related events together
 - Do not use long-form prose or paragraphs
 - Maximum 5 bullet points
-- IMPORTANT: Even if the provided stories seem irrelevant to the category, do your best to summarize them anyway. NEVER output conversational apologies or complaints about the dataset. Just output the bullet points.
+- IMPORTANT: Even if the provided stories seem irrelevant to the category, do your best to summarize them anyway. NEVER output conversational apologies or complaints about the dataset. Just output the summary.
 
 Top Stories:
 {stories_text}"""
@@ -165,11 +164,6 @@ Top Stories:
         # We must strip these out so the user only sees the final briefing.
         import re
         briefing = re.sub(r'<think>.*?(?:</think>|$)\s*', '', briefing, flags=re.DOTALL)
-        
-        # Qwen sometimes ignores instructions and uses markdown anyway, 
-        # so we strip bold/italic asterisks before sending to the frontend.
-        briefing = re.sub(r'\*\*(.*?)\*\*', r'\1', briefing)
-        briefing = re.sub(r'(?m)^\*\s', '- ', briefing) # Convert * bullets to -
         
         logger.info(f"[Summarizer] Briefing generated for {category}")
         return briefing
