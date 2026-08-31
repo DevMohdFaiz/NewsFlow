@@ -173,6 +173,16 @@ async def run_pipeline(*, trigger: str = "scheduler") -> dict:
         _running = False
 
 
+async def run_postgres_trim():
+    """Weekly background job to delete old clusters and briefings from Postgres."""
+    logger.info("[Scheduler] Running weekly Postgres trim")
+    try:
+        from backend.app.storage.store import store
+        await store.postgres.purge_old_clusters(days=7)
+        await store.postgres.purge_old_briefings(days=7)
+    except Exception as e:
+        logger.error(f"[Scheduler] Postgres trim failed: {e}")
+
 def create_scheduler() -> AsyncIOScheduler:
     """
     Build and return a configured APScheduler instance.
@@ -190,6 +200,18 @@ def create_scheduler() -> AsyncIOScheduler:
         kwargs={"trigger": "scheduler"},
         max_instances=1,
         misfire_grace_time=60,
+    )
+
+    # Weekly trim (Sunday at 01:00 UTC)
+    scheduler.add_job(
+        run_postgres_trim,
+        trigger="cron",
+        day_of_week="sun",
+        hour=1,
+        minute=0,
+        id="postgres_trim_job",
+        name="Weekly Postgres trim",
+        max_instances=1,
     )
 
     logger.info(
