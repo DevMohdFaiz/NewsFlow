@@ -63,10 +63,14 @@ KEYWORD_MAP: list[tuple[str, list[str]]] = [
         "market", "shares", "earnings", "profit", "revenue", "finance",
         "stock", ""
     ]),
+    ("Sports", [
+        "sport", "football", "messi" "soccer", "basketball", "tennis", "olympics",
+        "cricket", "rugby", "baseball", "athletics", "fifa", "premier league",
+        "nba", "nfl", "champion", "tournament", "stadium", "match", "athlete"
+    ]),
     ("Culture", [
         "film", "movie", "music", "album", "concert", "artist", "award",
         "oscar", "grammy", "netflix", "disney", "book", "novel", "author",
-        "sport", "football", "soccer", "basketball", "tennis", "olympics",
         "fashion", "celebrity", "actor", "actress", "director", "museum",
         "art", "culture", "theater", "theatre", "festival", "chef",
     ]),
@@ -104,8 +108,10 @@ class CategoryClassifier:
                 if re.search(r'\b' + re.escape(kw) + r'\b', text):
                     scores[category] += 1
 
+        # If no keywords matched at all, default to Politics
+        if max(scores.values()) == 0:
+            return "Politics"
+            
         # Pick the category with the highest keyword hit count
         best_cat = max(scores, key=lambda c: scores[c])
-        # if scores[best_cat] == 0:
-        #     return "Politics"   # Catch-all fallback
         return best_cat
