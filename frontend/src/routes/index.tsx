@@ -28,12 +28,15 @@ import {
   Tag,
   BarChart2,
   Sparkles,
+  MapPin,
+  Trophy,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "NewsFlow — Live News Dashboard" },
+      { title: "NewsFlow Live Dashboard" },
       { name: "description", content: "Real-time clustered news intelligence with AI briefings, sentiment and trending entities." },
       { property: "og:title", content: "NewsFlow: Live News Dashboard" },
       { property: "og:description", content: "Real-time clustered news intelligence with AI briefings, sentiment and trending entities." },
@@ -47,6 +50,7 @@ const PAGE_SIZE = 12;
 
 const CATEGORIES = [
   { key: "All", label: "All News", icon: Globe2 },
+  { key: "Nigeria", label: "Nigeria", icon: MapPin },
   { key: "Politics", label: "Politics", icon: Landmark },
   { key: "Economy", label: "Economy", icon: Briefcase },
   { key: "Tech", label: "Technology", icon: Cpu },
@@ -55,6 +59,7 @@ const CATEGORIES = [
   { key: "Conflict", label: "Conflict", icon: Flame },
   { key: "Climate", label: "Climate", icon: Globe2 },
   { key: "Culture", label: "Culture", icon: Newspaper },
+  { key: "Sports", label: "Sports", icon: Trophy },
 ] as const;
 
 type Cluster = {
@@ -126,32 +131,29 @@ function Dashboard() {
   const [briefing, setBriefing] = useState<string | null>(null);
   const [briefingTime, setBriefingTime] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  // Default to dark on initial render (server and client initial match)
-  // then read the persisted preference on mount to avoid hydration mismatch.
+  // SSR-safe: both server and client start with `true` so the initial render
+  // matches and React does not throw a hydration mismatch.
+  // The real persisted preference is applied after hydration via useEffect.
   const [isDark, setIsDark] = useState(true);
 
+  // On client mount only: read the saved preference and apply it.
+  // This runs AFTER hydration is complete so there is no mismatch.
   useEffect(() => {
-    if (typeof window === "undefined") return;
     const stored = localStorage.getItem("newsflow_dark_mode");
     if (stored !== null) setIsDark(stored === "true");
   }, []);
+
+  // Keep <html> class and localStorage in sync whenever isDark changes.
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+    localStorage.setItem("newsflow_dark_mode", String(isDark));
+  }, [isDark]);
 
   // Story detail drawer state
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
   const [clusterDetail, setClusterDetail] = useState<ClusterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("newsflow_dark_mode", String(isDark));
-    }
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [isDark]);
 
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -774,29 +776,29 @@ function Briefing({
               </div>
             ))}
           </div>
-        ) : lines.length === 0 ? (
+        ) : !content ? (
           <p className="text-sm text-[var(--color-mute)]">No briefing available for this category yet.</p>
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {visibleLines.map((line, i) => {
-              const text = line.trim().replace(/^[-•]\s*/, "");
-              return (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
-                  <p className="text-[14.5px] leading-relaxed text-[var(--color-ink)]/80">{text}</p>
-                </div>
-              );
-            })}
-            {hasMore && (
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="mt-2 inline-flex items-center gap-1.5 self-start rounded-lg border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/8 px-3.5 py-1.5 text-[13px] font-semibold text-[var(--color-accent)] transition hover:bg-[var(--color-accent)]/15 active:scale-[0.97]"
-                style={{ transitionTimingFunction: "var(--ease-snap)" }}
+          <div className="flex flex-col gap-2.5 overflow-hidden relative">
+            <div className={`transition-all duration-300 ${!expanded ? "max-h-[300px]" : "max-h-[2000px]"}`}>
+              <ReactMarkdown 
+                className="text-[14.5px] leading-relaxed text-[var(--color-ink)]/80 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-2 [&_strong]:text-[var(--color-ink)] [&_a]:text-[var(--color-accent)] space-y-4"
               >
-                {expanded ? "Show less" : `Read full briefing (${lines.length} points)`}
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} strokeWidth={2.5} />
-              </button>
-            )}
+                {content}
+              </ReactMarkdown>
+              {!expanded && (
+                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[var(--color-paper-2)] to-transparent pointer-events-none" />
+              )}
+            </div>
+            
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="mt-2 inline-flex items-center gap-1.5 self-start rounded-lg border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/8 px-3.5 py-1.5 text-[13px] font-semibold text-[var(--color-accent)] transition hover:bg-[var(--color-accent)]/15 active:scale-[0.97]"
+              style={{ transitionTimingFunction: "var(--ease-snap)" }}
+            >
+              {expanded ? "Show less" : "Read full briefing"}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} strokeWidth={2.5} />
+            </button>
           </div>
         )}
       </div>
