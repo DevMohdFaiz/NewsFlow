@@ -66,6 +66,71 @@ async def get_clusters(
     }
 
 
+@router.get("/search")
+async def semantic_search(
+    q: str               = Query(default="", description="Natural language search query"),
+    category: str | None = Query(default=None, description="Optionally scope to a category"),
+    top_k: int           = Query(default=12, ge=1, le=50, description="Number of results"),
+):
+    """
+    Semantic search over ingested story clusters using Voyage AI embeddings + Qdrant.
+    Returns results in the same Cluster shape as GET /api/clusters so the frontend needs no extra types.
+    """
+    q = q.strip()
+    if not q:
+        return {"clusters": [], "query": ""}
+
+    if category and category not in settings.briefing_categories and category != "All":
+        raise HTTPException(status_code=422, detail=f"Unknown category '{category}'")
+
+    import asyncio
+    from backend.app.processing.embedder import Embedder
+    from backend.app.storage.store import store
+
+    try:
+        loop = asyncio.get_event_loop()
+        embedder = Embedder()
+        query_vector = await loop.run_in_executor(
+            None, lambda: embedder.embed_query(q)
+        )
+
+        effective_category = category if (category and category != "All") else None
+        raw_hits = await loop.run_in_executor(
+            None,
+            lambda: store.qdrant.search(
+                query_vector=query_vector,
+                category=effective_category,
+                days=settings.rolling_window_days,
+                top_k=top_k,
+            ),
+        )
+    except Exception as exc:
+        logger.error(f"[Search] Semantic search failed: {exc}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Semantic search temporarily unavailable")
+
+    # Map Qdrant payload: Cluster shape expected by the frontend
+    clusters = [
+        {
+            "cluster_id":         str(hit["id"]),
+            "rep_title":          hit["payload"].get("title", ""),
+            "summary":            hit["payload"].get("summary", ""),
+            "source_count":       hit["payload"].get("source_count", 1),
+            "sentiment_score":    hit["payload"].get("sentiment_score", 0.0),
+            "sentiment_label":    hit["payload"].get("sentiment_label", "neutral"),
+            "category":           hit["payload"].get("category", ""),
+            "representative_url": hit["payload"].get("url", ""),
+            "rep_source":         hit["payload"].get("source", ""),
+            "entity_union":       hit["payload"].get("entity_union", []),
+            "published_at":       hit["payload"].get("published_iso", ""),
+            "_score":             round(hit["score"], 4),
+        }
+        for hit in raw_hits
+    ]
+
+    logger.info(f"[Search] '{q}' → {len(clusters)} results")
+    return {"clusters": clusters, "query": q}
+
+
 @router.get("/{cluster_id}")
 async def get_cluster_detail(cluster_id: str):
     """Return a single cluster with all its source articles."""
