@@ -91,6 +91,16 @@ type ChatMessage = {
   content: string;
 };
 
+type GlobalChatSource = {
+  cluster_id: string;
+  title: string;
+  category: string;
+  source: string;
+  url: string;
+  score: number;
+};
+
+
 type DashboardStats = {
   sentiment_by_category: Record<string, number>;
   trending_entities: { entity: string; count: number }[];
@@ -154,6 +164,9 @@ function Dashboard() {
   const [clusterDetail, setClusterDetail] = useState<ClusterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // Separate state for semantic search results (null = not in search mode)
+  const [searchResults, setSearchResults] = useState<Cluster[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -216,6 +229,9 @@ function Dashboard() {
   useEffect(() => {
     void loadClusters(category, 0);
     void loadBriefing(category);
+    // Clear any active search when the category changes so the
+    // search box doesn't retain a stale query for a different feed
+    setSearchQuery("");
   }, [category, loadClusters, loadBriefing]);
 
   // Background pipeline status poller — runs every 5 seconds for the lifetime
@@ -271,6 +287,23 @@ function Dashboard() {
       setDetailLoading(true);
       const detail = await safeJson<ClusterDetail>(`${API}/api/clusters/${cluster.cluster_id}`);
       setClusterDetail(detail);
+      // Merge real fields back into selectedCluster so stub data (e.g. from global
+      // chat source cards) gets replaced with accurate summary, sentiment, entities, etc.
+      if (detail) {
+        setSelectedCluster((prev) =>
+          prev
+            ? {
+                ...prev,
+                summary:         detail.summary        || prev.summary,
+                sentiment_score: detail.sentiment_score ?? prev.sentiment_score,
+                sentiment_label: detail.sentiment_label ?? prev.sentiment_label,
+                entity_union:    detail.entity_union?.length ? detail.entity_union : prev.entity_union,
+                source_count:    detail.source_count   || prev.source_count,
+                published_at:    detail.published_at   || prev.published_at,
+              }
+            : prev
+        );
+      }
       setDetailLoading(false);
     }
   }, []);
@@ -280,31 +313,84 @@ function Dashboard() {
     setClusterDetail(null);
   }, []);
 
-  // Close drawer on Escape
+  // ── Global chat state ──────────────────────────────────────────────────
+  const [globalChatOpen, setGlobalChatOpen] = useState(false);
+  const [globalChatMessages, setGlobalChatMessages] = useState<(ChatMessage & { sources?: GlobalChatSource[] })[]>([]);
+  const [globalChatInput, setGlobalChatInput] = useState("");
+  const [globalChatSending, setGlobalChatSending] = useState(false);
+
+  const sendGlobalMessage = useCallback(async () => {
+    const text = globalChatInput.trim();
+    if (!text || globalChatSending) return;
+
+    setGlobalChatMessages((prev) => [...prev, { role: "user", content: text }]);
+    setGlobalChatInput("");
+    setGlobalChatSending(true);
+
+    // Build history from current messages (exclude the one we just added above)
+    const history = globalChatMessages.map((m) => ({ role: m.role, content: m.content }));
+
+    const data = await safeJson<{ reply: string; sources: GlobalChatSource[] }>(
+      `${API}/api/chat`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, history }),
+      }
+    );
+
+    setGlobalChatMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: data?.reply ?? "Sorry, I couldn't get a response. Please try again.",
+        sources: data?.sources ?? [],
+      },
+    ]);
+    setGlobalChatSending(false);
+  }, [globalChatInput, globalChatMessages, globalChatSending]);
+
+  // Close drawers on Escape
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeStory();
+      if (e.key === "Escape") {
+        if (globalChatOpen) setGlobalChatOpen(false);
+        else closeStory();
+      }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [closeStory]);
+  }, [closeStory, globalChatOpen]);
 
   const activeLabel = CATEGORIES.find((c) => c.key === category)?.label ?? "All News";
 
   const clusterCounts = stats?.cluster_counts ?? {};
   const lastPipelineAt = stats?.last_pipeline_at ?? null;
 
-  // Client-side search filter
-  const filteredClusters = useMemo(() => {
-    if (!clusters) return null;
-    if (!searchQuery.trim()) return clusters;
-    const q = searchQuery.toLowerCase();
-    return clusters.filter(c => 
-      c.rep_title.toLowerCase().includes(q) || 
-      (c.summary && c.summary.toLowerCase().includes(q)) ||
-      (c.entity_union && c.entity_union.some(e => e.toLowerCase().includes(q)))
-    );
-  }, [clusters, searchQuery]);
+  // 500ms debounce: empty query → clear search mode; non-empty → call /api/search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    const timer = window.setTimeout(async () => {
+      const catParam = category && category !== "All"
+        ? `&category=${encodeURIComponent(category)}`
+        : "";
+      const data = await safeJson<{ clusters: Cluster[]; query: string }>(
+        `${API}/api/clusters/search?q=${encodeURIComponent(searchQuery.trim())}${catParam}`
+      );
+      setSearchResults(data?.clusters ?? []);
+      setSearchLoading(false);
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [searchQuery, category]);
 
   return (
     <div className="min-h-screen bg-[var(--color-paper)] text-[var(--color-ink)] font-sans antialiased">
@@ -327,14 +413,16 @@ function Dashboard() {
           <div className="px-8 pb-16 pt-6 space-y-8">
             <Briefing content={briefing} category={activeLabel} generatedAt={briefingTime} />
             <StoriesGrid
-              clusters={filteredClusters}
-              totalCount={totalCount}
-              hasMore={hasMore}
-              loadingMore={loadingMore}
+              clusters={searchResults !== null ? searchResults : clusters}
+              totalCount={searchResults !== null ? searchResults.length : totalCount}
+              hasMore={searchResults !== null ? false : hasMore}
+              loadingMore={searchResults !== null ? false : loadingMore}
               onLoadMore={loadMore}
               activeCategory={category}
               pipelineRunning={pipelineRunning}
               onOpenStory={openStory}
+              searchQuery={searchResults !== null ? searchQuery : ""}
+              searchLoading={searchLoading}
             />
           </div>
         </main>
@@ -365,6 +453,38 @@ function Dashboard() {
             <Sparkles className="h-4 w-4 text-[var(--color-accent)]" strokeWidth={2} />
             {toast}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Global Chat Panel */}
+      <GlobalChatPanel
+        open={globalChatOpen}
+        onClose={() => setGlobalChatOpen(false)}
+        messages={globalChatMessages}
+        input={globalChatInput}
+        onInputChange={setGlobalChatInput}
+        onSend={sendGlobalMessage}
+        sending={globalChatSending}
+        onOpenStory={openStory}
+      />
+
+      {/* Floating chat button */}
+      <AnimatePresence>
+        {!globalChatOpen && (
+          <motion.button
+            key="fab"
+            initial={{ opacity: 0, scale: 0.8, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 16 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            onClick={() => setGlobalChatOpen(true)}
+            title="Chat about today's news"
+            className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 rounded-full bg-[var(--color-ink)] px-4 py-3 text-[var(--color-paper)] shadow-2xl transition hover:opacity-90 active:scale-95"
+            style={{ transitionTimingFunction: "var(--ease-snap)" }}
+          >
+            <Bot className="h-4 w-4" strokeWidth={2} />
+            <span className="text-sm font-semibold">Ask NewsFlow AI</span>
+          </motion.button>
         )}
       </AnimatePresence>
     </div>
@@ -695,7 +815,7 @@ function Header({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Filter stories…"
+          placeholder="Search stories…"
           className="w-full bg-transparent text-sm text-[var(--color-ink)] placeholder-[var(--color-mute)] outline-none"
         />
       </div>
@@ -781,11 +901,9 @@ function Briefing({
         ) : (
           <div className="flex flex-col gap-2.5 overflow-hidden relative">
             <div className={`transition-all duration-300 ${!expanded ? "max-h-[300px]" : "max-h-[2000px]"}`}>
-              <ReactMarkdown 
-                className="text-[14.5px] leading-relaxed text-[var(--color-ink)]/80 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-2 [&_strong]:text-[var(--color-ink)] [&_a]:text-[var(--color-accent)] space-y-4"
-              >
-                {content}
-              </ReactMarkdown>
+              <div className="text-[14.5px] leading-relaxed text-[var(--color-ink)]/80 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-2 [&_strong]:text-[var(--color-ink)] [&_a]:text-[var(--color-accent)] space-y-4">
+                <ReactMarkdown>{content}</ReactMarkdown>
+              </div>
               {!expanded && (
                 <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[var(--color-paper-2)] to-transparent pointer-events-none" />
               )}
@@ -817,6 +935,8 @@ function StoriesGrid({
   activeCategory,
   pipelineRunning,
   onOpenStory,
+  searchQuery = "",
+  searchLoading = false,
 }: {
   clusters: Cluster[] | null;
   totalCount: number | null;
@@ -826,7 +946,20 @@ function StoriesGrid({
   activeCategory: string;
   pipelineRunning: boolean;
   onOpenStory: (c: Cluster) => void;
+  searchQuery?: string;
+  searchLoading?: boolean;
 }) {
+  // Show skeleton while a semantic search call is in-flight
+  if (searchLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-paper-2)] animate-pulse h-44" />
+        ))}
+      </div>
+    );
+  }
+
   if (clusters === null) {
     return (
       <div className="grid grid-cols-1 gap-4">
@@ -852,14 +985,18 @@ function StoriesGrid({
         </div>
         <div>
           <p className="font-display text-lg font-semibold text-[var(--color-ink)]">
-            {pipelineRunning ? "Fetching the latest news…" : "No stories yet"}
+            {searchQuery
+              ? `No results for "${searchQuery}"`
+              : pipelineRunning ? "Fetching the latest news…" : "No stories yet"}
           </p>
           <p className="text-sm text-[var(--color-mute)] mt-1 max-w-xs">
-            {pipelineRunning
-              ? "The pipeline is running for the first time. This takes around 6 minutes. Stories will appear automatically when ready."
-              : activeCategory === "All"
-                ? "Waiting for the next automated news cycle to ingest and cluster stories."
-                : `No ${activeCategory} stories in the current window. Check back later or try switching categories.`}
+            {searchQuery
+              ? "Try a different search — e.g. a topic, entity, or event name."
+              : pipelineRunning
+                ? "The pipeline is running for the first time. This takes around 6 minutes. Stories will appear automatically when ready."
+                : activeCategory === "All"
+                  ? "Waiting for the next automated news cycle to ingest and cluster stories."
+                  : `No ${activeCategory} stories in the current window. Check back later or try switching categories.`}
           </p>
         </div>
       </motion.div>
@@ -870,10 +1007,24 @@ function StoriesGrid({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between text-xs text-[var(--color-mute)]">
         <span className="flex items-center gap-1.5">
-          <Layers className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {totalCount !== null && totalCount > clusters.length
-            ? `Showing ${clusters.length} of ${totalCount} stories`
-            : `${clusters.length} ${clusters.length === 1 ? "story" : "stories"}`}
+          {searchQuery ? (
+            <>
+              <Sparkles className="h-3.5 w-3.5 text-[var(--color-accent)]" strokeWidth={1.75} />
+              <span>
+                <span className="text-[var(--color-accent)] font-semibold">Semantic results</span>
+                {" "}for{" "}
+                <span className="text-[var(--color-ink)] font-medium">"{searchQuery}"</span>
+                {" "}· {clusters.length} {clusters.length === 1 ? "story" : "stories"}
+              </span>
+            </>
+          ) : (
+            <>
+              <Layers className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {totalCount !== null && totalCount > clusters.length
+                ? `Showing ${clusters.length} of ${totalCount} stories`
+                : `${clusters.length} ${clusters.length === 1 ? "story" : "stories"}`}
+            </>
+          )}
         </span>
         <span className="text-[11px] opacity-60 hidden sm:block">Click any story for full detail + AI chat</span>
       </div>
@@ -1452,7 +1603,13 @@ function ChatTab({
                     : "bg-[var(--color-paper-2)] border border-[var(--color-line)] text-[var(--color-ink)] rounded-tl-sm"
                 }`}
               >
-                {msg.content}
+                {msg.role === "assistant" ? (
+                  <div className="space-y-2 [&_a]:text-[var(--color-accent)] [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:min-h-[1lh] [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  msg.content
+                )}
               </div>
             </motion.div>
           ))
@@ -1501,6 +1658,246 @@ function ChatTab({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- Global Chat Panel ---------- */
+
+const GLOBAL_SUGGESTIONS = [
+  "What's the biggest story today?",
+  "Summarize the latest Tech news",
+  "What's happening in Nigerian politics?",
+  "Any major economic developments?",
+];
+
+function GlobalChatPanel({
+  open,
+  onClose,
+  messages,
+  input,
+  onInputChange,
+  onSend,
+  sending,
+  onOpenStory,
+}: {
+  open: boolean;
+  onClose: () => void;
+  messages: (ChatMessage & { sources?: GlobalChatSource[] })[];
+  input: string;
+  onInputChange: (v: string) => void;
+  onSend: () => void;
+  sending: boolean;
+  onOpenStory: (c: Cluster) => void;
+}) {
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef   = useRef<HTMLInputElement>(null);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Focus input when panel opens
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 250);
+  }, [open]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="gchat-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+          />
+
+          {/* Panel */}
+          <motion.div
+            key="gchat-panel"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", stiffness: 380, damping: 38 }}
+            className="fixed right-0 top-0 bottom-0 z-50 flex w-full max-w-[520px] flex-col bg-[var(--color-paper)] border-l border-[var(--color-line)] shadow-2xl"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between gap-4 px-6 py-5 border-b border-[var(--color-line)] bg-[var(--color-paper-2)]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20">
+                  <Bot className="h-4 w-4 text-[var(--color-accent)]" strokeWidth={2} />
+                </div>
+                <div>
+                  <p className="font-display font-bold text-[15px] text-[var(--color-ink)]">NewsFlow AI</p>
+                  <p className="text-[11px] text-[var(--color-mute)]">Grounded in today's news · RAG-powered</p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--color-line)] transition hover:bg-[var(--color-paper)] active:scale-95"
+              >
+                <X className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            {/* Message list */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5 min-h-0">
+              {messages.length === 0 ? (
+                /* Empty state with starter suggestions */
+                <div className="flex flex-col items-center justify-center h-full gap-5 text-center py-8">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20">
+                    <Sparkles className="h-6 w-6 text-[var(--color-accent)]" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <p className="font-display font-semibold text-[var(--color-ink)]">Ask anything about today's news</p>
+                    <p className="text-[13px] text-[var(--color-mute)] mt-1.5 max-w-[280px]">
+                      I search today's ingested stories and answer based only on what's been published.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2 w-full max-w-[340px]">
+                    {GLOBAL_SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => onInputChange(s)}
+                        className="rounded-xl border border-[var(--color-line)] bg-[var(--color-paper-2)] px-4 py-2.5 text-left text-[13px] text-[var(--color-mute)] transition hover:border-[var(--color-ink)]/30 hover:text-[var(--color-ink)]"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                messages.map((msg, i) => (
+                  <div key={i} className="flex flex-col gap-2">
+                    {/* Message bubble */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.28, ease: EASE }}
+                      className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+                    >
+                      <div
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                          msg.role === "user"
+                            ? "bg-[var(--color-ink)] text-[var(--color-paper)]"
+                            : "bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 text-[var(--color-accent)]"
+                        }`}
+                      >
+                        {msg.role === "user"
+                          ? <User className="h-3.5 w-3.5" strokeWidth={2} />
+                          : <Bot className="h-3.5 w-3.5" strokeWidth={2} />}
+                      </div>
+                      <div
+                        className={`max-w-[82%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-[var(--color-ink)] text-[var(--color-paper)] rounded-tr-sm"
+                            : "bg-[var(--color-paper-2)] border border-[var(--color-line)] text-[var(--color-ink)] rounded-tl-sm"
+                        }`}
+                      >
+                        {msg.role === "assistant" ? (
+                          <div className="space-y-2 [&_a]:text-[var(--color-accent)] [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:min-h-[1lh] [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
+                    </motion.div>
+
+                    {/* Sources strip — shown below assistant replies only */}
+                    {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
+                      <div className="ml-10 flex flex-col gap-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-mute)]">
+                          Sources used
+                        </p>
+                        {msg.sources.map((src) => (
+                          <button
+                            key={src.cluster_id}
+                            onClick={() => onOpenStory({
+                              cluster_id:        src.cluster_id,
+                              rep_title:         src.title,
+                              summary:           "",
+                              source_count:      1,
+                              sentiment_score:   0,
+                              category:          src.category,
+                              representative_url: src.url,
+                              rep_source:        src.source,
+                            })}
+                            className="group flex items-center gap-2.5 rounded-lg border border-[var(--color-line)] bg-[var(--color-paper-2)] px-3 py-2 text-left transition hover:border-[var(--color-ink)]/30 hover:bg-[var(--color-paper)]"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-medium text-[var(--color-ink)] line-clamp-1">
+                                {src.title}
+                              </p>
+                              <p className="text-[10px] text-[var(--color-mute)] mt-0.5">
+                                {src.category} · {src.source}
+                              </p>
+                            </div>
+                            <ChevronRight className="h-3.5 w-3.5 text-[var(--color-mute)] shrink-0 opacity-0 group-hover:opacity-100 transition" strokeWidth={2} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+
+              {/* Typing indicator */}
+              {sending && (
+                <div className="flex gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20">
+                    <Bot className="h-3.5 w-3.5 text-[var(--color-accent)]" strokeWidth={2} />
+                  </div>
+                  <div className="rounded-2xl rounded-tl-sm bg-[var(--color-paper-2)] border border-[var(--color-line)] px-4 py-3">
+                    <div className="flex gap-1 items-center h-5">
+                      {[0, 1, 2].map((j) => (
+                        <motion.span
+                          key={j}
+                          className="h-1.5 w-1.5 rounded-full bg-[var(--color-mute)]"
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1.2, repeat: Infinity, delay: j * 0.2 }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input bar */}
+            <div className="px-6 py-4 border-t border-[var(--color-line)] bg-[var(--color-paper-2)]">
+              <div className="flex gap-2 items-center rounded-xl border border-[var(--color-line)] bg-[var(--color-paper)] px-4 py-2.5 focus-within:border-[var(--color-ink)]/40 transition">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => onInputChange(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
+                  placeholder="Ask about today's news…"
+                  className="flex-1 bg-transparent text-sm text-[var(--color-ink)] placeholder:text-[var(--color-mute)] outline-none"
+                />
+                <button
+                  onClick={onSend}
+                  disabled={!input.trim() || sending}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-ink)] text-[var(--color-paper)] transition hover:opacity-80 disabled:opacity-30 active:scale-95"
+                >
+                  <Send className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+              </div>
+              <p className="text-[10px] text-[var(--color-mute)] text-center mt-2">
+                Answers are grounded in the last {3} days of ingested news
+              </p>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
