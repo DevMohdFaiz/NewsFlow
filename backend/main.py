@@ -85,10 +85,12 @@ app.add_middleware(
 from backend.app.api.routes.clusters  import router as clusters_router
 from backend.app.api.routes.briefings import router as briefings_router
 from backend.app.api.routes.dashboard import router as dashboard_router
+from backend.app.api.routes.chat      import router as chat_router
 
 app.include_router(clusters_router)
 app.include_router(briefings_router)
 app.include_router(dashboard_router)
+app.include_router(chat_router)
 
 
 #  Pipeline control endpoints 
