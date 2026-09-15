@@ -2,7 +2,8 @@
   "services": {
     "frontend": {
       "root": "frontend/",
-      "framework": "tanstack-start"
+      "framework": "tanstack-start",
+      "routePrefix": "/"
     },
     "backend": {
       "root": "backend/",
@@ -18,9 +19,13 @@
       }
     },
     {
-      "source": "/(.*)",
+      "handle": "filesystem"
+    },
+    {
+      "source": "/((?!api).*)*",
       "destination": {
-        "service": "frontend"
+        "service": "frontend",
+        "path": "index.html"
       }
     }
   ]
