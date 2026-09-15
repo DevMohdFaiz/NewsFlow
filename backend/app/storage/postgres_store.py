@@ -3,14 +3,15 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from dateutil import parser as dateparser
 
-from sqlalchemy import select, delete, func
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select, delete, func, cast, type_coerce
+from sqlalchemy import String
+from sqlalchemy.dialects.postgresql import insert, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.storage.database import (
     ArticleModel, ClusterModel, BriefingModel, AsyncSessionLocal
 )
-from config import get_settings
+from backend.config import get_settings
 
 settings = get_settings()
 logger   = logging.getLogger(__name__)
@@ -111,6 +112,7 @@ class PostgresStore:
     async def get_clusters_detailed(
         self,
         category: str | None = None,
+        entity: str | None = None,
         days: int = 3,
         limit: int = 20,
         offset: int = 0,
@@ -139,8 +141,15 @@ class PostgresStore:
                 .order_by(ClusterModel.published_at.desc())
             )
 
-            if category:
+            if category and category != "All":
                 stmt = stmt.where(ClusterModel.category == category)
+
+            if entity:
+                # Postgres JSON containment: entity_union @> '["entity"]'
+                import json
+                stmt = stmt.where(
+                    type_coerce(ClusterModel.entity_union, JSONB).contains([entity])
+                )
 
             # Fetch one extra row to determine has_more
             stmt = stmt.limit(limit + 1).offset(offset)
@@ -197,14 +206,19 @@ class PostgresStore:
         self,
         category: str | None = None,
         days: int = 3,
+        entity: str | None = None,
     ) -> int:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         async with AsyncSessionLocal() as session:
             stmt = select(func.count(ClusterModel.id)).where(
                 ClusterModel.published_at >= cutoff
             )
-            if category:
+            if category and category != "All":
                 stmt = stmt.where(ClusterModel.category == category)
+            if entity:
+                stmt = stmt.where(
+                    type_coerce(ClusterModel.entity_union, JSONB).contains([entity])
+                )
             result = await session.execute(stmt)
             return result.scalar_one() or 0
 
