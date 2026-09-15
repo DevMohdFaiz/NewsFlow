@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from dateutil import parser as dateparser
 
-from config import get_settings
+from backend.config import get_settings
 
 settings = get_settings()
 logger   = logging.getLogger(__name__)

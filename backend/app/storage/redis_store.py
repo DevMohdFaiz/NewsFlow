@@ -2,7 +2,7 @@ import logging
 import json
 from datetime import timedelta
 from upstash_redis import Redis
-from config import get_settings
+from backend.config import get_settings
 
 settings = get_settings()
 logger   = logging.getLogger(__name__)

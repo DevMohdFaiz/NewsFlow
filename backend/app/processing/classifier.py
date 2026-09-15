@@ -1,13 +1,13 @@
 import logging
 import re
-from config import get_settings
+from backend.config import get_settings
 
 settings = get_settings()
 logger   = logging.getLogger(__name__)
 
 CATEGORIES = settings.briefing_categories
 
-# Keyword map — each category has a list of keywords/phrases.
+# Keyword map  each category has a list of keywords/phrases.
 # Order matters: checked top-to-bottom. Put more specific categories first.
 KEYWORD_MAP: list[tuple[str, list[str]]] = [
     ("Nigeria", [
@@ -61,12 +61,25 @@ KEYWORD_MAP: list[tuple[str, list[str]]] = [
         "deficit", "budget", "fiscal", "monetary", "oil price", "crude",
         "dollar", "euro", "currency", "investment", "bond", "treasury",
         "market", "shares", "earnings", "profit", "revenue", "finance",
-        "stock", ""
+        "stock exchange", "wall street", "nasdaq", "dow jones", "s&p"
     ]),
     ("Sports", [
-        "sport", "football", "messi" "soccer", "basketball", "tennis", "olympics",
+        "sport", "football", "soccer", "basketball", "tennis", "olympics",
         "cricket", "rugby", "baseball", "athletics", "fifa", "premier league",
-        "nba", "nfl", "champion", "tournament", "stadium", "match", "athlete"
+        "nba", "nfl", "champion", "tournament", "stadium", "match", "athlete",
+        # Football-specific terms that keep bleeding into Economy
+        "goal", "goals", "ligue 1", "la liga", "serie a", "bundesliga",
+        "la liga", "carabao cup", "fa cup", "champions league", "europa league",
+        "epl", "mbappe", "messi", "ronaldo", "awoniyi", "yamal",
+        "striker", "midfielder", "defender", "goalkeeper", "winger",
+        "red card", "yellow card", "penalty", "offside", "free kick",
+        "transfer", "signing", "squad", "manager", "coach", "fixture",
+        "standings", "table", "league table", "top of the league",
+        "hat trick", "assist", "clean sheet", "dribble", "tackle",
+        "kick off", "half time", "full time", "extra time",
+        "barcelona", "real madrid", "manchester", "liverpool", "chelsea",
+        "arsenal", "tottenham", "juventus", "psg", "bayern",
+        "thrash", "defeat", "win", "draw", "nil",
     ]),
     ("Culture", [
         "film", "movie", "music", "album", "concert", "artist", "award",
@@ -92,7 +105,7 @@ class CategoryClassifier:
         """Classify all clusters instantly via keyword matching."""
         for cluster in clusters:
             cluster["category"] = self._classify_one(cluster)
-        logger.info(f"[Classifier] Classified {len(clusters)} clusters (keyword-based, no API)")
+        logger.info(f"[Classifier] Classified {len(clusters)} clusters (keyword-based)")
         return clusters
 
     def _classify_one(self, cluster: dict) -> str:

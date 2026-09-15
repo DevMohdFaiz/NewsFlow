@@ -1,6 +1,6 @@
 import logging
 import spacy
-from config import get_settings
+from backend.config import get_settings
 
 settings = get_settings()
 logger   = logging.getLogger(__name__)
@@ -60,8 +60,8 @@ class NERProcessor:
         any group become singletons.
 
         Returns:
-            candidate_clusters  — list of article groups (need semantic check)
-            singletons          — articles that need individual embedding
+            candidate_clusters — list of article groups (need semantic check)
+            singletons — articles that need individual embedding
         """
         from datetime import datetime, timezone, timedelta
         from dateutil import parser as dateparser

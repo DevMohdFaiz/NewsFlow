@@ -4,7 +4,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from config import get_settings
+from backend.config import get_settings
 
 settings = get_settings()
 logger   = logging.getLogger(__name__)

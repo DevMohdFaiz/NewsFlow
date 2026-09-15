@@ -4,7 +4,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from backend.app.storage.store import store
-from config import get_settings
+from backend.config import get_settings
 
 settings = get_settings()
 logger   = logging.getLogger(__name__)
@@ -17,13 +17,14 @@ VALID_CATEGORIES = set(settings.briefing_categories)
 @router.get("")
 async def get_clusters(
     category: str | None = Query(default=None, description="Filter by category"),
+    entity: str | None   = Query(default=None, description="Filter to clusters mentioning this entity"),
     days: int | None     = Query(default=None, description="Rolling window in days (defaults to settings.rolling_window_days)"),
     limit: int           = Query(default=16, ge=1, le=100),
     offset: int          = Query(default=0, ge=0),
 ):
     """
     Return paginated story clusters.
-    Tries Redis top-stories cache first (first page, category-specific),
+    Tries Redis top-stories cache first (first page, category-specific, no entity filter),
     falls back to Postgres with a joined query for title + source.
     """
     # Use config value as default so changing rolling_window_days in .env is respected
@@ -32,8 +33,8 @@ async def get_clusters(
     if category and category not in settings.briefing_categories and category != "All":
         raise HTTPException(status_code=422, detail=f"Unknown category '{category}'")
 
-    # Redis cache only for page 1 of a specific category
-    if category and offset == 0:
+    # Redis cache only for page 1 of a specific category with no entity filter
+    if category and offset == 0 and not entity:
         cached = store.redis.get_top_stories(category)
         if cached:
             logger.debug(f"[API] Clusters cache hit for {category}")
@@ -50,17 +51,19 @@ async def get_clusters(
     # Postgres with JOIN
     clusters, has_more = await store.postgres.get_clusters_detailed(
         category=category,
+        entity=entity,
         days=effective_days,
         limit=limit,
         offset=offset,
     )
-    total = await store.postgres.count_clusters(category=category, days=effective_days)
+    total = await store.postgres.count_clusters(category=category, days=effective_days, entity=entity)
 
     return {
         "clusters": clusters,
         "has_more": has_more,
         "total":    total,
         "category": category,
+        "entity":   entity,
         "days":     effective_days,
         "cached":   False,
     }
@@ -153,7 +156,7 @@ async def chat_about_cluster(cluster_id: str, req: ChatRequest, raw: bool | None
     answers specifically about this story.
     """
     from groq import Groq
-    from config import get_settings
+    from backend.config import get_settings
     settings = get_settings()
     client = Groq(api_key=settings.groq_api_key)
 

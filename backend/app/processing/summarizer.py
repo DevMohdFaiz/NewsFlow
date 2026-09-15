@@ -2,7 +2,7 @@ import logging
 import re
 from groq import Groq
 from tenacity import retry, stop_after_attempt, wait_exponential
-from config import get_settings
+from backend.config import get_settings
 
 settings = get_settings()
 logger   = logging.getLogger(__name__)
