@@ -167,6 +167,8 @@ function Dashboard() {
   // Separate state for semantic search results (null = not in search mode)
   const [searchResults, setSearchResults] = useState<Cluster[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  // Entity filter - set when user clicks a trending entity
+  const [activeEntity, setActiveEntity] = useState<string | null>(null);
 
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -177,13 +179,12 @@ function Dashboard() {
   const pollRef = useRef<number | null>(null);
   const categoryRef = useRef<string>("All");
 
-  const loadClusters = useCallback(async (cat: string, off = 0) => {
+  const loadClusters = useCallback(async (cat: string, off = 0, entity: string | null = null) => {
     if (off === 0) setClusters(null);
-    const qs =
-      cat === "All"
-        ? `limit=${PAGE_SIZE}&offset=${off}`
-        : `category=${encodeURIComponent(cat)}&limit=${PAGE_SIZE}&offset=${off}`;
-    const data = await safeJson<{ clusters: Cluster[]; has_more: boolean; total?: number }>(`${API}/api/clusters?${qs}`);
+    const parts: string[] = [`limit=${PAGE_SIZE}`, `offset=${off}`];
+    if (cat !== "All") parts.push(`category=${encodeURIComponent(cat)}`);
+    if (entity) parts.push(`entity=${encodeURIComponent(entity)}`);
+    const data = await safeJson<{ clusters: Cluster[]; has_more: boolean; total?: number }>(`${API}/api/clusters?${parts.join("&")}`);
     if (off === 0) {
       setClusters(data?.clusters ?? []);
       setTotalCount(data?.total ?? null);
@@ -196,9 +197,18 @@ function Dashboard() {
 
   const loadMore = useCallback(async () => {
     setLoadingMore(true);
-    await loadClusters(category, offset + PAGE_SIZE);
+    await loadClusters(category, offset + PAGE_SIZE, activeEntity);
     setLoadingMore(false);
-  }, [category, offset, loadClusters]);
+  }, [category, offset, loadClusters, activeEntity]);
+
+  // Handle clicking a trending entity — filters the stories grid
+  const handleEntityClick = useCallback((entity: string) => {
+    const next = entity === activeEntity ? null : entity; // toggle off if same
+    setActiveEntity(next);
+    setSearchQuery("");
+    setSearchResults(null);
+    void loadClusters(category, 0, next);
+  }, [activeEntity, category, loadClusters]);
 
   const loadBriefing = useCallback(async (cat: string) => {
     setBriefing(null);
@@ -217,9 +227,9 @@ function Dashboard() {
 
   const refreshAll = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadClusters(category, 0), loadBriefing(category), loadStats()]);
+    await Promise.all([loadClusters(category, 0, activeEntity), loadBriefing(category), loadStats()]);
     setRefreshing(false);
-  }, [category, loadClusters, loadBriefing, loadStats]);
+  }, [category, activeEntity, loadClusters, loadBriefing, loadStats]);
 
   // Keep categoryRef in sync so the polling callback always refreshes the right category
   useEffect(() => {
@@ -229,8 +239,8 @@ function Dashboard() {
   useEffect(() => {
     void loadClusters(category, 0);
     void loadBriefing(category);
-    // Clear any active search when the category changes so the
-    // search box doesn't retain a stale query for a different feed
+    // Clear entity filter and search when the category changes
+    setActiveEntity(null);
     setSearchQuery("");
   }, [category, loadClusters, loadBriefing]);
 
@@ -412,6 +422,20 @@ function Dashboard() {
           />
           <div className="px-8 pb-16 pt-6 space-y-8">
             <Briefing content={briefing} category={activeLabel} generatedAt={briefingTime} />
+            {activeEntity && (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/8 text-sm">
+                <Tag className="h-3.5 w-3.5 text-[var(--color-accent)] shrink-0" />
+                <span className="text-[var(--color-ink)]/70">Filtering by entity:</span>
+                <span className="font-semibold text-[var(--color-accent)]">{activeEntity}</span>
+                <button
+                  onClick={() => handleEntityClick(activeEntity)}
+                  className="ml-auto text-[var(--color-mute)] hover:text-[var(--color-ink)] transition-colors"
+                  title="Clear entity filter"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
             <StoriesGrid
               clusters={searchResults !== null ? searchResults : clusters}
               totalCount={searchResults !== null ? searchResults.length : totalCount}
@@ -428,6 +452,8 @@ function Dashboard() {
         </main>
         <RightPanel
           stats={stats}
+          activeEntity={activeEntity}
+          onEntityClick={handleEntityClick}
         />
       </div>
 
@@ -1929,18 +1955,30 @@ function SentimentDot({ value }: { value: number }) {
 
 function RightPanel({
   stats,
+  activeEntity,
+  onEntityClick,
 }: {
   stats: DashboardStats | null;
+  activeEntity: string | null;
+  onEntityClick: (entity: string) => void;
 }) {
   return (
     <aside className="hidden xl:flex w-[320px] shrink-0 flex-col gap-8 px-6 py-10 sticky top-0 h-screen overflow-y-auto">
-      <Trending stats={stats} />
+      <Trending stats={stats} activeEntity={activeEntity} onEntityClick={onEntityClick} />
       <Sentiment stats={stats} />
     </aside>
   );
 }
 
-function Trending({ stats }: { stats: DashboardStats | null }) {
+function Trending({
+  stats,
+  activeEntity,
+  onEntityClick,
+}: {
+  stats: DashboardStats | null;
+  activeEntity: string | null;
+  onEntityClick: (entity: string) => void;
+}) {
   const items = stats?.trending_entities?.slice(0, 8) ?? [];
   const max = items[0]?.count ?? 1;
   return (
@@ -1948,6 +1986,11 @@ function Trending({ stats }: { stats: DashboardStats | null }) {
       <div className="flex items-center gap-2 mb-4">
         <Flame className="h-4 w-4 text-[var(--color-neg)]" strokeWidth={1.75} />
         <h3 className="font-display text-sm font-bold uppercase tracking-wider text-[var(--color-mute)]">Trending</h3>
+        {activeEntity && (
+          <span className="ml-auto text-[11px] font-semibold text-[var(--color-accent)] cursor-pointer hover:underline" onClick={() => onEntityClick(activeEntity)}>
+            Clear ✕
+          </span>
+        )}
       </div>
       {stats === null ? (
         <div className="space-y-2">
@@ -1961,10 +2004,16 @@ function Trending({ stats }: { stats: DashboardStats | null }) {
         <ul className="space-y-1">
           {items.map((e, i) => {
             const barPct = (e.count / max) * 100;
+            const isActive = e.entity === activeEntity;
             return (
-              <li key={e.entity} className="group relative overflow-hidden rounded-lg">
+              <li
+                key={e.entity}
+                className={`group relative overflow-hidden rounded-lg cursor-pointer transition-all duration-200 ${isActive ? "ring-1 ring-[var(--color-accent)]" : "hover:ring-1 hover:ring-[var(--color-line)]"}`}
+                onClick={() => onEntityClick(e.entity)}
+                title={`Filter stories by "${e.entity}"`}
+              >
                 <div
-                  className="absolute inset-y-0 left-0 rounded-lg bg-[var(--color-paper-2)] transition-all duration-500"
+                  className={`absolute inset-y-0 left-0 rounded-lg transition-all duration-500 ${isActive ? "bg-[var(--color-accent)]/20" : "bg-[var(--color-paper-2)]"}`}
                   style={{ width: `${barPct}%` }}
                 />
                 <div className="relative flex items-center justify-between px-3 py-2.5 text-sm">
@@ -1972,7 +2021,7 @@ function Trending({ stats }: { stats: DashboardStats | null }) {
                     <span className="font-mono text-[10px] font-bold text-[var(--color-mute)] w-4 shrink-0">
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <span className="font-medium truncate text-[13px]">{e.entity}</span>
+                    <span className={`font-medium truncate text-[13px] ${isActive ? "text-[var(--color-accent)]" : ""}`}>{e.entity}</span>
                   </span>
                   <span
                     className="font-mono text-[11px] font-bold shrink-0 ml-2 tabular-nums"

@@ -999,16 +999,16 @@ The boot-time immediate runs are critical. Without them, the app would start wit
 
 The entire system runs on free tiers. Below is the monthly cost breakdown at normal operating scale (~750 raw articles/day, ~310 clusters/day).
 
-| Service | Usage | Free Tier | Monthly Cost |
+| Service | Usage | Free Tier |
 |---|---|---|---|
-| VoyageAI (voyage-3) | ~12.6M tokens/month | 200M tokens free | **$0** |
-| Groq (8B + 70B) | Classification + sentiment + summarization | Generous free RPM/TPM | **$0** |
-| Qdrant Cloud | ~9,300 vectors (3-day window) | 1GB free cluster | **$0** |
-| Neon PostgreSQL | ~90MB/month growth | 512MB free | **$0** |
-| Upstash Redis | ~2,000 commands/day | 10,000 commands/day free | **$0** |
-| Render (backend) | 1 free web service | Free (spins down idle) | **$0** |
-| Vercel (frontend) | Hobby tier | Free | **$0** |
-| NewsAPI | ~48 requests/day | 100 requests/day free | **$0** |
+| VoyageAI (voyage-3) | ~12.6M tokens/month | 200M tokens free | 
+| Groq (8B + 70B) | Classification + sentiment + summarization | Generous free RPM/TPM | 
+| Qdrant Cloud | ~9,300 vectors (3-day window) | 1GB free cluster | 
+| Neon PostgreSQL | ~90MB/month growth | 512MB free | 
+| Upstash Redis | ~2,000 commands/day | 10,000 commands/day free | 
+| Render (backend) | 1 free web service | Free (spins down idle) | 
+| Vercel (frontend) | Hobby tier | Free | 
+| NewsAPI | ~48 requests/day | 100 requests/day free | 
 | SerpAPI | ~144 requests/day (3 queries × 48 runs) | 100 free searches/month | ⚠️ |
 | **Total** | | | **~$0/month** |
 
