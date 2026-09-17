@@ -8,7 +8,7 @@ settings = get_settings()
 logger   = logging.getLogger(__name__)
 
 client         = Groq(api_key=settings.groq_api_key)
-BRIEFING_MODEL = "qwen/qwen3.6-27b"
+BRIEFING_MODEL = "qwen/qwen3.8-27b" 
 
 
 def _extractive_summary(texts: list[str], sentence_count: int = 3) -> str:

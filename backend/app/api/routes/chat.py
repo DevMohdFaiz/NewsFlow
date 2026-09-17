@@ -53,7 +53,7 @@ async def global_chat(req: GlobalChatRequest):
     from backend.app.processing.embedder import Embedder
     from backend.app.storage.store import store
 
-    # ── 1. Embed the query ─────────────────────────────────────────────────
+    #  1. Embed the query 
     try:
         embedder = Embedder()
         query_vector = await asyncio.get_event_loop().run_in_executor(
@@ -63,7 +63,7 @@ async def global_chat(req: GlobalChatRequest):
         logger.error(f"[GlobalChat] Embedding failed: {e}", exc_info=True)
         raise HTTPException(status_code=503, detail="Embedding service unavailable")
 
-    # ── 2. Retrieve relevant clusters from Qdrant ──────────────────────────
+    #  2. Retrieve relevant clusters from Qdrant 
     try:
         raw_hits = await asyncio.get_event_loop().run_in_executor(
             None,
@@ -78,7 +78,7 @@ async def global_chat(req: GlobalChatRequest):
         logger.warning(f"[GlobalChat] Qdrant search failed, proceeding without context: {e}")
         raw_hits = []
 
-    # ── 3. Build grounded context block ───────────────────────────────────
+    #  3. Build grounded context block 
     sources = []
     context_lines = []
 
@@ -113,7 +113,7 @@ async def global_chat(req: GlobalChatRequest):
             "and they should check back shortly."
         )
 
-    # ── 4. Call Groq LLM ──────────────────────────────────────────────────
+    #  4. Call Groq LLM 
     try:
         from groq import Groq
         client = Groq(api_key=settings.groq_api_key)
