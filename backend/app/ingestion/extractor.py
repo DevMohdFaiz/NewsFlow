@@ -4,7 +4,7 @@ from newspaper import Article
 
 logger = logging.getLogger(__name__)
 
-MAX_WORKERS  = 100    # parallel extraction threads
+MAX_WORKERS  = 10    # parallel extraction threads
 MIN_BODY_LEN = 150   # discard articles with too little text
 
 class ArticleExtractor:
