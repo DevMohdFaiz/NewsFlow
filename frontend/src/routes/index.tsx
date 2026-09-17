@@ -1760,7 +1760,7 @@ function GlobalChatPanel({
                 </div>
                 <div>
                   <p className="font-display font-bold text-[15px] text-[var(--color-ink)]">NewsFlow AI</p>
-                  <p className="text-[11px] text-[var(--color-mute)]">Grounded in today's news · RAG-powered</p>
+                  <p className="text-[11px] text-[var(--color-mute)]">Ask me about the news</p>
                 </div>
               </div>
               <button
@@ -1905,7 +1905,7 @@ function GlobalChatPanel({
                   value={input}
                   onChange={(e) => onInputChange(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-                  placeholder="Ask about today's news…"
+                  placeholder="Ask me about the news…"
                   className="flex-1 bg-transparent text-sm text-[var(--color-ink)] placeholder:text-[var(--color-mute)] outline-none"
                 />
                 <button
@@ -1917,7 +1917,7 @@ function GlobalChatPanel({
                 </button>
               </div>
               <p className="text-[10px] text-[var(--color-mute)] text-center mt-2">
-                Answers are grounded in the last {3} days of ingested news
+                Answers are sourced from the past {3} days of ingested news
               </p>
             </div>
           </motion.div>
