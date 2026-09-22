@@ -145,10 +145,15 @@ class PostgresStore:
                 stmt = stmt.where(ClusterModel.category == category)
 
             if entity:
-                # Postgres JSON containment: entity_union @> '["entity"]'
-                import json
+                # Case-insensitive entity match using jsonb_array_elements_text
+                from sqlalchemy import text as sa_text
                 stmt = stmt.where(
-                    type_coerce(ClusterModel.entity_union, JSONB).contains([entity])
+                    sa_text(
+                        "EXISTS ("
+                        "  SELECT 1 FROM json_array_elements_text(clusters.entity_union) AS _e"
+                        "  WHERE lower(_e) = lower(:_entity_val)"
+                        ")"
+                    ).bindparams(_entity_val=entity)
                 )
 
             # Fetch one extra row to determine has_more
@@ -216,8 +221,14 @@ class PostgresStore:
             if category and category != "All":
                 stmt = stmt.where(ClusterModel.category == category)
             if entity:
+                from sqlalchemy import text as sa_text
                 stmt = stmt.where(
-                    type_coerce(ClusterModel.entity_union, JSONB).contains([entity])
+                    sa_text(
+                        "EXISTS ("
+                        "  SELECT 1 FROM json_array_elements_text(clusters.entity_union) AS _e"
+                        "  WHERE lower(_e) = lower(:_entity_val)"
+                        ")"
+                    ).bindparams(_entity_val=entity)
                 )
             result = await session.execute(stmt)
             return result.scalar_one() or 0
