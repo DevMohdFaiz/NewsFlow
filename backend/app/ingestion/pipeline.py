@@ -19,15 +19,6 @@ class IngestionPipeline:
     def run(self) -> list[dict]:
         logger.info("[Ingestion] Pipeline started")
 
-        # 1. Fetch from all sources; run concurrently to cut latency
-        # with ThreadPoolExecutor(max_workers=2) as executor:
-        #     future_news = executor.submit(self.news_fetcher.fetch_all)
-        #     future_rss  = executor.submit(self.rss_fetcher.fetch_all)
-
-        #     newsapi_articles = future_news.result()
-        #     rss_articles     = future_rss.result()
-
-        # raw = newsapi_articles + rss_articles
         raw = self.rss_fetcher.fetch_all()
         logger.info(f"[Ingestion] Raw articles collected: {len(raw)}")
 
