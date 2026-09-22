@@ -180,7 +180,7 @@ function Dashboard() {
   const categoryRef = useRef<string>("All");
 
   const loadClusters = useCallback(async (cat: string, off = 0, entity: string | null = null) => {
-    if (off === 0) setClusters(null);
+    if (off === 0 && entity === null) setClusters(null);
     const parts: string[] = [`limit=${PAGE_SIZE}`, `offset=${off}`];
     if (cat !== "All") parts.push(`category=${encodeURIComponent(cat)}`);
     if (entity) parts.push(`entity=${encodeURIComponent(entity)}`);
