@@ -9,13 +9,14 @@ logger = logging.getLogger(__name__)
 RSS_FEEDS = [
     # International Wire
     # ("Reuters", "https://feeds.reuters.com/reuters/topNews"),
-    # ("AP News", "https://feeds.apnews.com/rss/apf-topnews"),
+    ("Reuters", "https://ir.thomsonreuters.com/rss-feeds"),
+    ("AP News", "https://feeds.apnews.com/rss/apf-topnews"),
     ("BBC World", "http://feeds.bbci.co.uk/news/world/rss.xml"),
     ("Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml"),
-    # ("DW", "https://rss.dw.com/rss/rss-en-all"),
+    ("DW", "https://rss.dw.com/rdf/rss-en-all"), 
     ("France 24", "https://www.france24.com/en/rss"), 
     # US
-    # ("NPR", "https://feeds.npr.org/1001/rss.xml"),
+    ("NPR", "https://feeds.npr.org/1001/rss.xml"),
     ("CNN", "http://rss.cnn.com/rss/edition_world.rss"),
     ("NYT World", "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"),
     ("Washington Post", "https://feeds.washingtonpost.com/rss/world"),
@@ -27,23 +28,24 @@ RSS_FEEDS = [
     ("Ars Technica", "https://feeds.arstechnica.com/arstechnica/index"),
     ("The Verge", "https://www.theverge.com/rss/index.xml"),
     # Business / Economy
-    # ("FT", "https://www.ft.com/rss/home/us"),
+    ("FT", "https://www.ft.com/rss/home/us"),
     ("Bloomberg", "https://feeds.bloomberg.com/markets/news.rss"),
     ("CNBC",   "https://www.cnbc.com/id/100003114/device/rss/rss.html"),
     # Science / Health
     ("Science Daily",   "https://www.sciencedaily.com/rss/all.xml"),
-    # ("WHO",    "https://www.who.int/rss-feeds/news-releases-en.xml"),
+    ("WHO",    "https://www.who.int/rss-feeds/news-releases-en.xml"),
     # Climate
     ("Carbon Brief", "https://www.carbonbrief.org/feed"),
     # Africa / Nigeria
     ("Africa News",       "https://www.africanews.com/feed/"),
     ("Premium Times",     "https://www.premiumtimesng.com/feed"),
+    ("Daily Trust",        "https://dailytrust.com/feed/"),
     ("Guardian Nigeria",  "https://guardian.ng/feed"),
     ("PM News",           "https://pmnewsnigeria.com/feed/"),
     ("Channels TV",       "https://www.channelstv.com/feed/"),
     ("Vanguard",          "https://www.vanguardngr.com/feed/"),
     ("Punch",             "https://punchng.com/feed/"),
-    ("The Cable",         "https://www.thecable.ng/feed"),
+    ("The Cable",         "https://www.thecable.ng/feed"), 
     ("Mail & Guardian",   "https://mg.co.za/feed/"),
 ]
 
