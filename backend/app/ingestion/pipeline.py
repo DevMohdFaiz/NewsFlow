@@ -1,17 +1,15 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from backend.app.ingestion.news_fetcher import NewsFetcher
-from backend.app.ingestion.rss_fetcher  import RSSFetcher
-from backend.app.ingestion.extractor    import ArticleExtractor
-from backend.app.ingestion.normalizer   import Normalizer
+from backend.app.ingestion.rss_fetcher import RSSFetcher
+from backend.app.ingestion.extractor import ArticleExtractor
+from backend.app.ingestion.normalizer import Normalizer
 
 logger = logging.getLogger(__name__)
 
 
 class IngestionPipeline:
     def __init__(self):
-        self.news_fetcher = NewsFetcher()
         self.rss_fetcher  = RSSFetcher()
         self.extractor    = ArticleExtractor()
         self.normalizer   = Normalizer()
