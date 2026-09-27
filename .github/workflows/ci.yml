@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install ruff mypy pytest
-          pip install -r requirements.txt   # or your actual install command
+          pip install -r backend/requirements.txt   # or your actual install command
 
       - name: Run ruff
         run: ruff check .
