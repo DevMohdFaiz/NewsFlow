@@ -695,7 +695,7 @@ function MobileCategoryDropdown({
 
   return (
     <div className="relative" ref={ref}>
-      <button 
+      <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 text-[var(--color-accent)] font-bold outline-none transition active:scale-95"
       >
@@ -934,7 +934,7 @@ function Briefing({
                 <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[var(--color-paper-2)] to-transparent pointer-events-none" />
               )}
             </div>
-            
+
             <button
               onClick={() => setExpanded(!expanded)}
               className="mt-2 inline-flex items-center gap-1.5 self-start rounded-lg border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/8 px-3.5 py-1.5 text-[13px] font-semibold text-[var(--color-accent)] transition hover:bg-[var(--color-accent)]/15 active:scale-[0.97]"
@@ -1469,7 +1469,7 @@ function DetailTab({
             />
           </div>
           <div className="flex justify-between text-[10px] text-[var(--color-mute)] font-mono">
-            <span>Very Negative (−1)</span>
+            <span>Very Negative (-1)</span>
             <span>Neutral</span>
             <span>Very Positive (+1)</span>
           </div>
@@ -1692,7 +1692,7 @@ function ChatTab({
 const GLOBAL_SUGGESTIONS = [
   "What's the biggest story today?",
   "Summarize the latest Tech news",
-  "What's happening in Nigerian politics?",
+  "What's happening in politics?",
   "Any major economic developments?",
 ];
 
@@ -2093,4 +2093,3 @@ function Sentiment({ stats }: { stats: DashboardStats | null }) {
     </section>
   );
 }
-
