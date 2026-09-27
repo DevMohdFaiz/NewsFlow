@@ -1,6 +1,7 @@
 .env
 *__pycache__/
 .agents/
+old_tests/
 tests/
 notebook.ipynb
 todo.txt
