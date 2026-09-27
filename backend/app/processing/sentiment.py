@@ -6,7 +6,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from backend.config import get_settings
 
 settings = get_settings()
-logger   = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 # Load VADER once at module level as it's fast and lightweight
 _vader = SentimentIntensityAnalyzer()
@@ -16,11 +16,11 @@ BRIEFING_MODEL = "openai/gpt-oss-20b"
 
 
 def _score_to_label(score: float) -> str:
-    if score >=  0.5:
+    if score >= 0.5:
         return "very positive"
-    elif score >=  0.2:
+    elif score >= 0.2:
         return "positive"
-    elif score >=  0.05:
+    elif score >= 0.05:
         return "slightly positive"
     elif score > -0.05:
         return "neutral"
@@ -33,7 +33,6 @@ def _score_to_label(score: float) -> str:
 
 
 class SentimentAnalyzer:
-
     def analyze_batch(self, clusters: list[dict]) -> list[dict]:
         """Score sentiment for all clusters instantly using VADER"""
         for cluster in clusters:
@@ -44,10 +43,10 @@ class SentimentAnalyzer:
         return clusters
 
     def _analyze_one(self, cluster: dict) -> tuple[float, str]:
-        rep   = cluster.get("representative", {})
+        rep = cluster.get("representative", {})
         title = rep.get("title", "")
-        desc  = rep.get("description", "") or rep.get("body", "")[:300]
-        text  = f"{title}. {desc}"
+        desc = rep.get("description", "") or rep.get("body", "")[:300]
+        text = f"{title}. {desc}"
 
         scores = _vader.polarity_scores(text)
         # compound score is already clamped to [-1.0, 1.0]

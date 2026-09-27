@@ -1,23 +1,20 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from newspaper import Article # type: ignore
+from newspaper import Article  # type: ignore
 
 logger = logging.getLogger(__name__)
 
-MAX_WORKERS  = 10    # parallel extraction threads
-MIN_BODY_LEN = 150   # discard articles with too little text
+MAX_WORKERS = 10  # parallel extraction threads
+MIN_BODY_LEN = 150  # discard articles with too little text
+
 
 class ArticleExtractor:
-
     def extract_batch(self, articles: list[dict]) -> list[dict]:
         """Extract full body for all articles in parallel."""
         enriched = []
 
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            future_map = {
-                executor.submit(self._extract_one, a): a
-                for a in articles
-            }
+            future_map = {executor.submit(self._extract_one, a): a for a in articles}
             for future in as_completed(future_map):
                 try:
                     result = future.result()
@@ -31,8 +28,7 @@ class ArticleExtractor:
                     )
 
         logger.info(
-            f"[Extractor] {len(enriched)}/{len(articles)} articles "
-            f"passed extraction"
+            f"[Extractor] {len(enriched)}/{len(articles)} articles passed extraction"
         )
         return enriched
 
@@ -46,6 +42,7 @@ class ArticleExtractor:
             return article
 
         from newspaper import Config
+
         try:
             conf = Config()
             conf.request_timeout = 5
@@ -58,8 +55,8 @@ class ArticleExtractor:
                 return None
 
             # Enrich with anything newspaper3k found
-            article["body"]        = body
-            article["title"]       = article["title"] or a.title or ""
+            article["body"] = body
+            article["title"] = article["title"] or a.title or ""
             article["description"] = article["description"] or a.meta_description or ""
 
             # Use newspaper3k's publish date if we don't have one

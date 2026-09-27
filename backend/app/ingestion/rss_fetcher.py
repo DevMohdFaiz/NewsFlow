@@ -31,30 +31,30 @@ RSS_FEEDS = [
     # Business / Economy
     ("FT", "https://www.ft.com/rss/home/us"),
     ("Bloomberg", "https://feeds.bloomberg.com/markets/news.rss"),
-    ("CNBC",   "https://www.cnbc.com/id/100003114/device/rss/rss.html"),
+    ("CNBC", "https://www.cnbc.com/id/100003114/device/rss/rss.html"),
     # Science / Health
-    ("Science Daily",   "https://www.sciencedaily.com/rss/all.xml"),
-    ("WHO",    "https://www.who.int/rss-feeds/news-releases-en.xml"),
+    ("Science Daily", "https://www.sciencedaily.com/rss/all.xml"),
+    ("WHO", "https://www.who.int/rss-feeds/news-releases-en.xml"),
     # Climate
     ("Carbon Brief", "https://www.carbonbrief.org/feed"),
     # Africa / Nigeria
-    ("Africa News",       "https://www.africanews.com/feed/"),
-    ("Premium Times",     "https://www.premiumtimesng.com/feed"),
-    ("Daily Trust",        "https://dailytrust.com/feed/"),
-    ("Guardian Nigeria",  "https://guardian.ng/feed"),
-    ("PM News",           "https://pmnewsnigeria.com/feed/"),
-    ("Channels TV",       "https://www.channelstv.com/feed/"),
-    ("Vanguard",          "https://www.vanguardngr.com/feed/"),
-    ("Punch",             "https://punchng.com/feed/"),
-    ("The Cable",         "https://www.thecable.ng/feed"),
-    ("Mail & Guardian",   "https://mg.co.za/feed/"),
+    ("Africa News", "https://www.africanews.com/feed/"),
+    ("Premium Times", "https://www.premiumtimesng.com/feed"),
+    ("Daily Trust", "https://dailytrust.com/feed/"),
+    ("Guardian Nigeria", "https://guardian.ng/feed"),
+    ("PM News", "https://pmnewsnigeria.com/feed/"),
+    ("Channels TV", "https://www.channelstv.com/feed/"),
+    ("Vanguard", "https://www.vanguardngr.com/feed/"),
+    ("Punch", "https://punchng.com/feed/"),
+    ("The Cable", "https://www.thecable.ng/feed"),
+    ("Mail & Guardian", "https://mg.co.za/feed/"),
 ]
 
 
 class RSSFetcher:
-
     def fetch_all(self) -> list[dict]:
         from concurrent.futures import ThreadPoolExecutor, as_completed
+
         all_articles = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
@@ -79,20 +79,21 @@ class RSSFetcher:
         import requests
 
         def strip_html(html_str):
-            if not html_str: return ""
-            text = re.sub(r'<[^>]+>', ' ', html_str)
-            return ' '.join(text.split())
+            if not html_str:
+                return ""
+            text = re.sub(r"<[^>]+>", " ", html_str)
+            return " ".join(text.split())
 
         try:
             resp = requests.get(feed_url, timeout=20)
             feed = feedparser.parse(resp.content)
             results = []
             for entry in feed.entries:
-                url   = entry.get("link", "")
+                url = entry.get("link", "")
                 title = entry.get("title", "").strip()
                 if not url or not title:
                     continue
-            # return entry
+                # return entry
                 # Try to get the longest text available in the RSS feed
                 content_html = ""
                 if "content" in entry and len(entry.content) > 0:
@@ -103,15 +104,17 @@ class RSSFetcher:
                 if len(body) < 150:
                     body = strip_html(summary_html)
 
-                results.append({
-           "title": title,
-           "url": url,
-           "source": source_name,
-           "published_at": self._parse_date(entry),
-           "description": strip_html(summary_html),
-           "body":  body,
-           "origin": "rss",
-                })
+                results.append(
+                    {
+                        "title": title,
+                        "url": url,
+                        "source": source_name,
+                        "published_at": self._parse_date(entry),
+                        "description": strip_html(summary_html),
+                        "body": body,
+                        "origin": "rss",
+                    }
+                )
 
             logger.info(f"[RSS] {source_name} => {len(results)} entries")
             return results
@@ -123,11 +126,20 @@ class RSSFetcher:
     def _parse_date(self, entry) -> str | None:
         """Parse RSS date to ISO 8601 UTC string."""
         # feedparser provides published_parsed as time.struct_time
-        if (hasattr(entry, "published_parsed") and entry.published_parsed) or (hasattr(entry, "updated_parsed") and entry.updated_parsed):
+        if (hasattr(entry, "published_parsed") and entry.published_parsed) or (
+            hasattr(entry, "updated_parsed") and entry.updated_parsed
+        ):
             try:
                 parsed = entry.get("published_parsed") or entry.get("updated_parsed")
-                dt = datetime(parsed[0], parsed[1], parsed[2],
-                            parsed[3], parsed[4], parsed[5], tzinfo=UTC)
+                dt = datetime(
+                    parsed[0],
+                    parsed[1],
+                    parsed[2],
+                    parsed[3],
+                    parsed[4],
+                    parsed[5],
+                    tzinfo=UTC,
+                )
                 return dt.isoformat()
             except (IndexError, TypeError, ValueError):
                 pass
@@ -136,9 +148,9 @@ class RSSFetcher:
         raw = entry.get("published") or entry.get("updated")
         if raw:
             try:
-                print("=="*50)
+                print("==" * 50)
                 print(f"{entry['links'][0]['href'][11:30]}")
-                print("="*50)
+                print("=" * 50)
                 dt = parsedate_to_datetime(raw).astimezone(UTC)
                 return dt.isoformat()
             except Exception:

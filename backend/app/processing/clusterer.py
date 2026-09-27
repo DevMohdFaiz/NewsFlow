@@ -8,20 +8,17 @@ from backend.config import get_settings
 from .embedder import Embedder
 
 settings = get_settings()
-logger   = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 SIMILARITY_THRESHOLD = settings.similarity_threshold
 
 
 class SemanticClusterer:
-
     def __init__(self):
         self.embedder = Embedder()
 
     def cluster(
-        self,
-        candidate_clusters: list[list[dict]],
-        singletons: list[dict]
+        self, candidate_clusters: list[list[dict]], singletons: list[dict]
     ) -> list[dict]:
         """
         Takes NER-formed candidate groups and singletons.
@@ -60,9 +57,9 @@ class SemanticClusterer:
 
         # Process candidate clusters
         for i, group in enumerate(candidate_clusters):
-            rep        = representatives[i]
-            rep_text   = self._embed_text(rep)
-            rep_embed  = text_to_embed_map[rep_text]
+            rep = representatives[i]
+            rep_text = self._embed_text(rep)
+            rep_embed = text_to_embed_map[rep_text]
 
             confirmed_group = [rep]
 
@@ -79,11 +76,13 @@ class SemanticClusterer:
                     # If it doesn't meet the threshold, add to singletons for global clustering
                     singletons.append(member)
 
-            story_clusters.append({
-                "representative": rep,
-                "embedding": rep_embed,
-                "articles": confirmed_group
-            })
+            story_clusters.append(
+                {
+                    "representative": rep,
+                    "embedding": rep_embed,
+                    "articles": confirmed_group,
+                }
+            )
 
         # Process singletons with greedy semantic clustering
         for article in singletons:
@@ -103,41 +102,46 @@ class SemanticClusterer:
                 best_cluster["articles"].append(article)
             else:
                 # Become a new cluster
-                story_clusters.append({
-                    "representative": article,
-                    "embedding": article_embed,
-                    "articles": [article]
-                })
+                story_clusters.append(
+                    {
+                        "representative": article,
+                        "embedding": article_embed,
+                        "articles": [article],
+                    }
+                )
 
         # Finalize format
         final_clusters = []
         for sc in story_clusters:
             final_clusters.append(
-                self._build_cluster(sc["articles"], sc["representative"], sc["embedding"])
+                self._build_cluster(
+                    sc["articles"], sc["representative"], sc["embedding"]
+                )
             )
 
-        logger.info(f"[Clusterer] Formed {len(final_clusters)} story clusters from semantic clustering")
+        logger.info(
+            f"[Clusterer] Formed {len(final_clusters)} story clusters from semantic clustering"
+        )
         return final_clusters
 
     #  Helpers
 
     def _build_cluster(
-        self,
-        articles: list[dict],
-        representative: dict,
-        embedding: list[float]
+        self, articles: list[dict], representative: dict, embedding: list[float]
     ) -> dict:
         all_entities = []
         for a in articles:
             all_entities.extend(a.get("entities", []))
 
         return {
-            "cluster_id":           hashlib.md5(representative.get("url", "").encode()).hexdigest(),
-            "articles":             articles,
-            "representative":       representative,
-            "embedding":            embedding,
-            "entity_union":         list(set(all_entities)),
-            "source_count":         len(articles),
+            "cluster_id": hashlib.md5(
+                representative.get("url", "").encode()
+            ).hexdigest(),
+            "articles": articles,
+            "representative": representative,
+            "embedding": embedding,
+            "entity_union": list(set(all_entities)),
+            "source_count": len(articles),
             # Fields filled by later processors — intentionally absent until set
         }
 
@@ -146,8 +150,8 @@ class SemanticClusterer:
         return max(group, key=lambda a: len(a.get("body", "")))
 
     def _embed_text(self, article: dict) -> str:
-        title        = article.get("title", "")
-        description  = article.get("description", "")
+        title = article.get("title", "")
+        description = article.get("description", "")
         body_snippet = article.get("body", "")[:500]
         return f"{title}. {description}. {body_snippet}".strip()
 

@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 
 class IngestionPipeline:
     def __init__(self):
-        self.rss_fetcher  = RSSFetcher()
-        self.extractor    = ArticleExtractor()
-        self.normalizer   = Normalizer()
+        self.rss_fetcher = RSSFetcher()
+        self.extractor = ArticleExtractor()
+        self.normalizer = Normalizer()
 
     def run(self) -> list[dict]:
         logger.info("[Ingestion] Pipeline started")
