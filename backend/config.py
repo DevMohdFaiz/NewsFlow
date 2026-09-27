@@ -1,27 +1,25 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    #  External API keys 
+    #  External API keys
     groq_api_key: str
     voyageai_api_key: str
-    news_api_key: str
-    serp_api_key: str
-    newsdata_api_key: str
 
-    #  Qdrant 
+    #  Qdrant
     qdrant_api_key: str
-    qdrant_cluster_endpoint: str   
+    qdrant_cluster_endpoint: str
 
-    #  Neon Postgres 
+    #  Neon Postgres
     neon_database_url: str           # must start with postgresql+asyncpg://
 
-    #  Upstash Redis 
+    #  Upstash Redis
     upstash_redis_rest_url:   str    # e.g. https://us1-xxxx.upstash.io
     upstash_redis_rest_token: str    # the token from the Upstash console
 
-    #  Pipeline constants 
+    #  Pipeline constants
     qdrant_collection: str = "news_articles"
     rolling_window_days: int = 3
     briefing_categories: list[str] = [

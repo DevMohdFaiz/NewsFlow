@@ -1,5 +1,8 @@
 import logging
+from datetime import UTC
+
 import spacy
+
 from backend.config import get_settings
 
 settings = get_settings()
@@ -28,23 +31,23 @@ class NERProcessor:
 
         for article, doc in zip(articles, docs):
             source_name = article.get("source", "").lower().strip()
-            
+
             entities = []
             for ent in doc.ents:
                 if ent.label_ in ENTITY_TYPES and len(ent.text.strip()) > 1:
                     text = ent.text.strip()
                     t_lower = text.lower()
-                    
+
                     # Filter out publisher names from trending topics
                     if source_name and (t_lower in source_name or source_name in t_lower):
                         continue
-                    
+
                     blacklist = ["news", "premium times", "bbc", "cnn", "nytimes", "al jazeera", "reuters", "bloomberg"]
                     if any(b in t_lower for b in blacklist):
                         continue
-                        
+
                     entities.append(text)
-                    
+
             article["entities"] = list(set(entities))
 
         return articles
@@ -63,14 +66,15 @@ class NERProcessor:
             candidate_clusters — list of article groups (need semantic check)
             singletons — articles that need individual embedding
         """
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime
+
         from dateutil import parser as dateparser
 
         def get_dt(a):
             try:
-                return dateparser.parse(a["published_at"]).astimezone(timezone.utc)
+                return dateparser.parse(a["published_at"]).astimezone(UTC)
             except Exception:
-                return datetime.now(timezone.utc)
+                return datetime.now(UTC)
 
         clusters   = []   # list of lists
         singletons = []
@@ -98,7 +102,7 @@ class NERProcessor:
 
                 ents_j = parsed_data[j]["ents"]
                 dt_j   = parsed_data[j]["dt"]
-                
+
                 time_diff = abs((dt_i - dt_j).total_seconds()) / 3600
                 overlap   = len(ents_i & ents_j)
 
@@ -117,4 +121,4 @@ class NERProcessor:
             f"[NER] {len(clusters)} candidate clusters, "
             f"{len(singletons)} singletons"
         )
-        return clusters, singletons 
+        return clusters, singletons

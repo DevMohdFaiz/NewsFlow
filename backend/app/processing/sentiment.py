@@ -1,6 +1,8 @@
 import logging
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
 from groq import Groq
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
 from backend.config import get_settings
 
 settings = get_settings()
@@ -22,11 +24,11 @@ def _score_to_label(score: float) -> str:
         return "slightly positive"
     elif score > -0.05:
         return "neutral"
-    elif score > -0.2: 
+    elif score > -0.2:
         return "slightly negative"
     elif score > -0.5:
         return "negative"
-    else: 
+    else:
         return "very negative"
 
 

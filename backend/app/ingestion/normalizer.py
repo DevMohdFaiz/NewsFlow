@@ -2,7 +2,8 @@ import hashlib
 import html
 import logging
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 from dateutil import parser as dateparser
 
 from backend.config import get_settings
@@ -26,9 +27,9 @@ class Normalizer:
         windowed  = [a for a in parsed if self._within_window(a)]
         unique    = self._deduplicate(windowed)
         for a in unique:
-            a["body"]        = self._clean_text(a.get("body", ""))
+            a["body"] = self._clean_text(a.get("body", ""))
             a["description"] = self._clean_text(a.get("description", ""))
-            a["title"]       = self._clean_text(a.get("title", ""))
+            a["title"] = self._clean_text(a.get("title", ""))
 
         logger.info(
             f"[Normalizer] {len(articles)} in → "
@@ -38,39 +39,39 @@ class Normalizer:
         )
         return unique
 
-    # ── Date Parsing ─────────────────────────────────────────
+    #  Date Parsing
     def _parse_dates(self, article: dict) -> dict | None:
         raw = article.get("published_at")
         if not raw:
             # default to now if completely missing
-            article["published_at"] = datetime.now(timezone.utc).isoformat()
+            article["published_at"] = datetime.now(UTC).isoformat()
             return article
         try:
             dt = dateparser.parse(str(raw))
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             else:
-                dt = dt.astimezone(timezone.utc)
+                dt = dt.astimezone(UTC)
             article["published_at"] = dt.isoformat()
             return article
         except Exception:
             logger.debug(f"[Normalizer] Could not parse date: {raw}")
             return None
 
-    # ── Rolling Window ────────────────────────────────────────
+    #  Rolling Window
     def _within_window(self, article: dict) -> bool:
         try:
             # published_at is already a normalized ISO 8601 string from _parse_dates;
             # use fromisoformat instead of the slower dateparser regex engine.
             dt  = datetime.fromisoformat(article["published_at"])
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            age = datetime.now(timezone.utc) - dt
+                dt = dt.replace(tzinfo=UTC)
+            age = datetime.now(UTC) - dt
             return age <= timedelta(hours=MAX_AGE_HOURS)
         except Exception:
             return False
 
-    # ── Deduplication ─────────────────────────────────────────
+    #  Deduplication
     def _deduplicate(self, articles: list[dict]) -> list[dict]:
         seen_urls        = set()
         seen_fingerprints = set()

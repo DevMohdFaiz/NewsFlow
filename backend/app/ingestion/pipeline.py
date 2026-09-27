@@ -1,9 +1,8 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from backend.app.ingestion.rss_fetcher import RSSFetcher
 from backend.app.ingestion.extractor import ArticleExtractor
 from backend.app.ingestion.normalizer import Normalizer
+from backend.app.ingestion.rss_fetcher import RSSFetcher
 
 logger = logging.getLogger(__name__)
 

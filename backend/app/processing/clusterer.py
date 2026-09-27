@@ -1,9 +1,11 @@
-import logging
-import uuid
 import hashlib
+import logging
+
 import numpy as np
-from .embedder import Embedder
+
 from backend.config import get_settings
+
+from .embedder import Embedder
 
 settings = get_settings()
 logger   = logging.getLogger(__name__)
@@ -35,20 +37,20 @@ class SemanticClusterer:
         """
         # 1. Collect all texts that need to be embedded to do one bulk API call
         texts_to_embed = set()
-        
+
         representatives = [self._pick_representative(g) for g in candidate_clusters]
         for rep in representatives:
             texts_to_embed.add(self._embed_text(rep))
-            
+
         for i, group in enumerate(candidate_clusters):
             rep = representatives[i]
             for member in group:
                 if member != rep:
                     texts_to_embed.add(self._embed_text(member))
-                    
+
         for s in singletons:
             texts_to_embed.add(self._embed_text(s))
-            
+
         # Bulk embed
         unique_texts = list(texts_to_embed)
         embeddings = self.embedder.embed_texts(unique_texts) if unique_texts else []
@@ -56,7 +58,7 @@ class SemanticClusterer:
 
         story_clusters = []
 
-        # Process candidate clusters 
+        # Process candidate clusters
         for i, group in enumerate(candidate_clusters):
             rep        = representatives[i]
             rep_text   = self._embed_text(rep)
@@ -69,7 +71,7 @@ class SemanticClusterer:
                     continue
                 member_text = self._embed_text(member)
                 member_embed = text_to_embed_map[member_text]
-                
+
                 sim = self._cosine(rep_embed, member_embed)
                 if sim >= SIMILARITY_THRESHOLD:
                     confirmed_group.append(member)
@@ -87,16 +89,16 @@ class SemanticClusterer:
         for article in singletons:
             article_text = self._embed_text(article)
             article_embed = text_to_embed_map[article_text]
-            
+
             best_sim = 0.0
             best_cluster = None
-            
+
             for sc in story_clusters:
                 sim = self._cosine(article_embed, sc["embedding"])
                 if sim > best_sim:
                     best_sim = sim
                     best_cluster = sc
-                    
+
             if best_sim >= SIMILARITY_THRESHOLD:
                 best_cluster["articles"].append(article)
             else:
@@ -117,7 +119,7 @@ class SemanticClusterer:
         logger.info(f"[Clusterer] Formed {len(final_clusters)} story clusters from semantic clustering")
         return final_clusters
 
-    #  Helpers 
+    #  Helpers
 
     def _build_cluster(
         self,

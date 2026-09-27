@@ -1,6 +1,8 @@
 import logging
+
 import voyageai
 from tenacity import retry, stop_after_attempt, wait_exponential
+
 from backend.config import get_settings
 
 settings = get_settings()
@@ -34,13 +36,13 @@ class Embedder:
     def _embed_batch(self, batch: list[str]) -> list[list[float]]:
         """Embed a single batch with retry logic."""
         result = client.embed(batch, model=EMBED_MODEL, input_type="document")
-        return result.embeddings
+        return [[float(x) for x in embedding] for embedding in result.embeddings]
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=10))
     def embed_query(self, query: str) -> list[float]:
         """Embed a single search query."""
         result = client.embed([query], model=EMBED_MODEL, input_type="query")
-        return result.embeddings[0]
+        return [float(x) for x in result.embeddings[0]]
 
     def _article_text(self, article: dict) -> str:
         """Build the text we embed per article — title + description + body snippet."""

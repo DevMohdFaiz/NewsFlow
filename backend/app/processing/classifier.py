@@ -1,5 +1,6 @@
 import logging
 import re
+
 from backend.config import get_settings
 
 settings = get_settings()
@@ -11,8 +12,8 @@ CATEGORIES = settings.briefing_categories
 # Order matters: checked top-to-bottom. Put more specific categories first.
 KEYWORD_MAP: list[tuple[str, list[str]]] = [
     ("Nigeria", [
-        "nigeria", "lagos", "abuja", "tinubu", "buhari", "naira", "cbn", 
-        "efcc", "inec", "boko haram", "nnpc", "dangote", "sanwo-olu", 
+        "nigeria", "lagos", "abuja", "tinubu", "buhari", "naira", "cbn",
+        "efcc", "inec", "boko haram", "nnpc", "dangote", "sanwo-olu",
         "super eagles", "ndlea", "dss", "aso rock", "fct", "nddc", "ibadan", "kano"
     ]),
     ("Conflict", [
@@ -21,7 +22,7 @@ KEYWORD_MAP: list[tuple[str, list[str]]] = [
         "offensive", "artillery", "drone strike", "missile", "combat", "hostage",
         "wounded", "casualties", "coup", "siege", "frontline", "armed",
         "terrorist", "terrorism", "isis", "hamas", "hezbollah", "nato forces",
-        "ukraine", "russia", "gaza", "conflict zone", "uav", 
+        "ukraine", "russia", "gaza", "conflict zone", "uav",
     ]),
     ("Climate", [
         "climate", "global warming", "carbon", "emissions", "fossil fuel",
@@ -124,7 +125,7 @@ class CategoryClassifier:
         # If no keywords matched at all, default to Politics
         if max(scores.values()) == 0:
             return "Politics"
-            
+
         # Pick the category with the highest keyword hit count
         best_cat = max(scores, key=lambda c: scores[c])
         return best_cat

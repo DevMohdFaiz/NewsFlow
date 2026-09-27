@@ -1,6 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from newspaper import Article
+from newspaper import Article # type: ignore
 
 logger = logging.getLogger(__name__)
 
